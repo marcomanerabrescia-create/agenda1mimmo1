@@ -1,0 +1,101 @@
+<?php
+/**
+ * Invio notifiche Web Push via VAPID (Minishlink/WebPush).
+ * Usa config/vapid.json e il DB locale push_subscriptions.db.
+ */
+
+header('Content-Type: text/plain; charset=utf-8');
+
+try {
+    $autoload = __DIR__ . '/vendor/autoload.php';
+    if (!file_exists($autoload)) {
+        throw new RuntimeException('vendor/autoload.php non trovato (copiare la cartella vendor sul server)');
+    }
+    require $autoload;
+
+    $configPath = dirname(__DIR__) . '/config/vapid.json';
+    if (!file_exists($configPath)) {
+        throw new RuntimeException('config/vapid.json non trovato');
+    }
+    $config = json_decode(file_get_contents($configPath), true);
+    if (!is_array($config)) {
+        throw new RuntimeException('config/vapid.json non valido');
+    }
+
+    $appId = $config['app_id'] ?? 'APP';
+    $subject = $config['subject'] ?? 'mailto:admin@example.com';
+    $publicKey = $config['public_key'] ?? '';
+    $privateKey = $config['private_key'] ?? '';
+    $dbFile = __DIR__ . '/' . ($config['db_file'] ?? 'push_subscriptions.db');
+
+    if (!$publicKey || !$privateKey) {
+        throw new RuntimeException('Chiavi VAPID mancanti');
+    }
+
+    $db = new PDO('sqlite:' . $dbFile);
+    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // Payload base
+    $title = $_POST['title'] ?? $_GET['title'] ?? 'Ristorante da Mimmo';
+    $body = $_POST['body'] ?? $_GET['body'] ?? 'Nuova notifica';
+    $url = $_POST['url'] ?? $_GET['url'] ?? 'https://www.consulenticaniegatti.com/ristorante-mimmo/';
+    $icon = $_POST['icon'] ?? $_GET['icon'] ?? 'icon-192.png';
+
+    $payload = json_encode([
+        'title' => $title,
+        'body' => $body,
+        'icon' => $icon,
+        'data' => ['url' => $url]
+    ]);
+
+    echo "== Invio Web Push VAPID ($appId) ==\n";
+
+    $stmt = $db->prepare('SELECT * FROM subscriptions WHERE app_id = :app_id');
+    $stmt->execute(['app_id' => $appId]);
+    $subs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$subs) {
+        echo "Nessuna subscription registrata.\n";
+        exit;
+    }
+
+    $webPush = new Minishlink\WebPush\WebPush([
+        'VAPID' => [
+            'subject' => $subject,
+            'publicKey' => $publicKey,
+            'privateKey' => $privateKey,
+        ],
+    ]);
+
+    $failed = 0;
+    $sent = 0;
+
+    foreach ($subs as $row) {
+        $subscription = Minishlink\WebPush\Subscription::create([
+            'endpoint' => $row['endpoint'],
+            'publicKey' => $row['p256dh'],
+            'authToken' => $row['auth'],
+            'contentEncoding' => 'aes128gcm',
+        ]);
+
+        $webPush->queueNotification($subscription, $payload);
+    }
+
+    foreach ($webPush->flush() as $report) {
+        $endpoint = $report->getRequest()->getUri()->__toString();
+        if ($report->isSuccess()) {
+            $sent++;
+            echo "[OK] $endpoint\n";
+        } else {
+            $failed++;
+            echo "[FAIL] $endpoint => " . $report->getReason() . "\n";
+        }
+    }
+
+    echo "Totale inviate: $sent, fallite: $failed\n";
+
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo "ERRORE: " . $e->getMessage() . "\n";
+    echo $e->getFile() . ':' . $e->getLine() . "\n";
+}
