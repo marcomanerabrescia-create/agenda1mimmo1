@@ -1,0 +1,3920 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Cliente - Prenotazione</title>
+    <link rel="manifest" href="manifest-muletto.json" />
+    <script>
+        // Log globale per errori JS e promise non gestite
+        window.addEventListener('error', (e) => {
+            console.error('[PUSH DEBUG] JS ERROR', e.message, e.filename, `${e.lineno}:${e.colno}`);
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('[PUSH DEBUG] PROMISE REJECTION', e.reason);
+        });
+    </script>
+
+    <!-- <meta name="theme-color" content="#2196f3" /> -->
+    
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+       
+        html {
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f5f5f5; 
+            color: #333;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            overflow-x: hidden;
+            max-width: 100vw;
+            width: 100%;
+        }
+
+        /* Copertina overlay */
+        .cover-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            background: #fff;
+            z-index: 20000;
+        }
+
+        .cover-box {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: space-between;
+            text-align: left;
+            color: #000;
+            padding: 24px;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        .cover-title-input {
+            width: 100%;
+            font-size: 18px;
+            line-height: 1.4;
+            padding: 12px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            box-sizing: border-box;
+        }
+
+        .cover-message-wrapper {
+            position: relative;
+            width: 100%;
+            flex: 1 1 auto;
+        }
+
+        .cover-textarea {
+            width: 100%;
+            min-height: 0;
+            height: 100%;
+            flex: 1 1 auto;
+            font-size: 18px;
+            line-height: 1.5;
+            padding: 12px 12px 12px 70px; /* spazio per il logo a sinistra */
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        .cover-image {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 15mm;
+            height: 15mm;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #f2f2f2;
+            display: none;
+        }
+
+        .cover-button {
+            background: #2196f3;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: auto;
+        }
+
+        .cover-button:active {
+            transform: translateY(1px);
+        }
+
+        .container {
+            width: calc(100% - 40px);
+            max-width: 350px;
+            aspect-ratio: 3 / 4;
+            min-height: 85vh;
+            margin: 30px 20px;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex; /* Visibile di default (muletto) */
+            flex-direction: column;
+        }
+        
+        @supports not (aspect-ratio: 3 / 4) {
+            .container::before {
+                content: "";
+                float: left;
+                padding-top: 133.33%;
+            }
+            .container::after {
+                content: "";
+                display: block;
+                clear: both;
+            }
+        }
+        
+        .container * {
+            max-width: 100%;
+        }
+
+        .vet-card {
+            background: white;
+            padding: 26px 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .vet-card h2 {
+            margin: 0;
+            font-size: 1.6em;
+        }
+        
+        .vet-card p {
+            margin: 5px 0 0;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 600px) {
+            .vet-card {
+                padding: 12px 10px;
+                margin-bottom: 10px;
+            }
+            
+            .vet-card h2 {
+                font-size: 0.85em;
+            }
+            
+            .vet-card p {
+                font-size: 0.7em;
+            }
+        }
+        
+        .my-appointments {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            padding: 4px 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 1cm;
+            box-sizing: border-box;
+        }
+        
+        .my-appointments.visible {
+            display: flex;
+        }
+        
+        .appointment-nav {
+            background: none;
+            border: none;
+            font-size: 1em;
+            cursor: pointer;
+            padding: 2px 6px;
+            color: #333;
+        }
+        
+        .appointment-info {
+            flex-grow: 1;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+        
+        .appointment-delete {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 3px 8px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+
+        .month-selector {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 0px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            background: white;
+            border: 1px solid #ddd;
+        }
+
+        .custom-info-bar { 
+            width: 100%;
+            padding: 7px 12px;
+            background: #2196f3; 
+            color: #333;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 0.95em;
+            text-align: center;
+            margin-top: 12px;
+            margin-bottom: 8px;
+        }
+
+        
+        @media (max-width: 600px) {
+            .month-selector {
+                margin-bottom: 15px;
+                padding: 0px 10px;
+            }
+            
+            .custom-info-bar {
+                margin-bottom: 8px;
+                padding: 6px 10px;
+                font-size: 0.75em;
+            }
+        }
+
+        .control-button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        .custom-info-bar .control-button {
+            background: #f57c00;
+        }
+        
+        #calendar-wrapper {
+            overflow-x: auto; 
+            padding-bottom: 10px; 
+            -webkit-overflow-scrolling: touch; 
+            touch-action: pan-x; 
+            overscroll-behavior-x: contain;
+            max-width: 100%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            min-height: 120px;
+        }
+
+        .day-grid {
+            display: grid;
+            grid-template-columns: repeat(15, 60px); 
+            gap: 5px;
+            width: 970px; 
+            text-align: center;
+        }
+        
+        .day-box {
+            padding: 10px 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+            touch-action: manipulation; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #ffeb3b; 
+            border: 1px solid black; /* Ripristino del bordo nero sottile */
+            color: #1b5e20;
+            font-weight: bold;
+            font-size: 1.6em; 
+            height: 50px;
+            width: 60px;
+        }
+        
+        @media (max-width: 768px) {
+            .day-box {
+                height: 42px;
+                width: 42px;
+                font-size: 1.2em;
+                padding: 6px 3px;
+            }
+            
+            .day-grid {
+                grid-template-columns: repeat(15, 42px);
+                gap: 3px;
+                width: 645px;
+            }
+        }
+
+        .day-box:hover {
+            background: #81c784; 
+        }
+        
+        .day-box.selected {
+            background: #2ecc71 !important; 
+            color: white !important;
+        }
+
+        .day-box.disabled {
+            background: #f0f0f0;
+            color: #ccc;
+            cursor: default;
+        }
+        
+        .modal {
+            position: fixed; 
+            top: 0;
+            left: 0;
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none; 
+            justify-content: center;
+            align-items: flex-start; 
+            z-index: 1000;
+            overflow: auto; 
+            padding-top: 20px; 
+            box-sizing: border-box; 
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            width: 350px;
+            min-height: 600px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            margin: 0 auto 20px auto; 
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .modal-content button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .modal-content button.btn-green {
+            background: #2ecc71;
+        }
+
+        /* Modale messaggi */
+        #message-modal .message-modal-content {
+            width: 500px;
+            max-width: 95%;
+            min-height: auto;
+            padding: 24px;
+            text-align: left;
+        }
+
+        #message-modal h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .message-form-group {
+            margin-bottom: 15px;
+        }
+
+        .message-form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .message-form-group input,
+        .message-form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+
+        .message-form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .message-error {
+            color: #c0392b;
+            margin-bottom: 10px;
+            display: none;
+            text-align: center;
+        }
+
+        .message-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-start;
+            margin-top: 20px;
+        }
+
+        .message-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .message-btn.send {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .message-btn.cancel {
+            background: #bdc3c7;
+            color: #2c3e50;
+        }
+
+        #availableSlotsList {
+            max-height: 250px; 
+            overflow-y: auto; 
+            padding-right: 10px; 
+            -webkit-overflow-scrolling: touch; 
+            overscroll-behavior-y: contain;
+            max-width: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .slot-time {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #e1f5fe;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        
+        .slot-time.occupied {
+            background: #e0e0e0;
+            color: #999;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+        
+        .slot-time:not(.occupied):hover {
+            background: #b3e5fc;
+        }
+
+        #bookingForm input, #bookingForm textarea {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        #bookingForm button {
+            width: 100%;
+            margin-top: 0;
+            background: #2ecc71;
+            font-size: 1.1em;
+            padding: 12px 20px;
+        }
+        
+        #custom-alert {
+            position: fixed;
+            top: 50px; 
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4CAF50; 
+            color: white;
+            padding: 15px 45px 15px 25px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            pointer-events: none; 
+            max-width: 90%;
+            width: auto;
+            min-width: 280px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        #custom-alert.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+        
+        #custom-alert.error {
+            background: #e74c3c;
+        }
+        
+        #welcome-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        #welcome-modal.show {
+            display: flex;
+        }
+        
+        .welcome-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px 25px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+        
+        .welcome-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #666;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+        }
+        
+        .welcome-close:hover {
+            color: #333;
+        }
+        
+        .welcome-content h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .welcome-content p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            font-size: 0.95em;
+        }
+        
+        .welcome-button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .welcome-button:hover {
+            background: #229954;
+        }
+
+        /* Evidenzia la privacy accettata anche se il checkbox è disabilitato */
+        #infoModal input[type="checkbox"]:checked + span {
+            color: #27ae60;
+            font-weight: 700;
+        }
+        
+        .help-button {
+            display: none;
+        }
+        
+        .help-instructions-button {
+            width: 100%;
+            padding: 12px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 0.95em;
+        }
+
+        
+        .help-instructions-button:hover {
+            background: #1976d2;
+        }
+        
+        .activation-code-button {
+            width: 100%;
+            padding: 8px;
+            background: #333333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        
+        .send-documents-button {
+            width: 100%;
+            padding: 8px;
+            background: #2196f3; /* Colore blu come richiesto */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        
+        .help-instructions-button,
+        .send-documents-button,
+        .activation-code-button {
+            margin-top: 8px; /* Spazio tra i pulsanti (attenzione al modale) */
+            padding: 12px; /* Altezza uniforme */
+            font-size: 0.9em; /* Testo uniforme */
+            white-space: normal;
+            word-break: break-word;
+            box-sizing: border-box;
+        }
+        
+        .documents-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .documents-modal.show {
+            display: flex;
+        }
+        
+        .documents-content {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .documents-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #666;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+        }
+        
+        .documents-close:hover {
+            color: #333;
+        }
+        
+        .documents-content h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        /* TABS */
+        .tabs-container {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        
+        .tab-button {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.95em;
+            color: #666;
+            transition: all 0.3s;
+        }
+        
+        .tab-button:hover {
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .tab-button.active {
+            color: #4CAF50;
+            border-bottom-color: #4CAF50;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .categories-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .category-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .category-item:hover {
+            background: #e0e0e0;
+        }
+
+        .category-icon {
+            font-size: 1.5em;
+            margin-right: 12px;
+        }
+
+        .category-name {
+            flex: 1;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .category-count {
+            color: #999;
+            font-size: 0.9em;
+        }
+        
+        .category-view {
+            display: none;
+        }
+        
+        .category-view.active {
+            display: block;
+        }
+        
+        .category-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .back-button {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 5px 10px;
+            margin-right: 10px;
+            color: #666;
+        }
+        
+        .back-button:hover {
+            color: #333;
+        }
+        
+        .category-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .add-document-btn {
+            width: 100%;
+            padding: 12px;
+            background: #2196f3; /* Colore blu */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 1em;
+        }
+        
+        .add-document-btn:hover {
+            background: #45a049;
+        }
+        
+        .documents-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .upload-form {
+            display: none;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .upload-form.active {
+            display: block;
+        }
+        
+        .upload-form input[type="text"],
+        .upload-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .upload-form-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .upload-form-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-cancel {
+            background: #999;
+            color: white;
+        }
+        
+        .document-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .document-item:hover {
+            background: #e8e8e8;
+        }
+        
+        .document-thumbnail {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 12px;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+        }
+        
+        .document-info {
+            flex: 1;
+        }
+        
+        .document-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 3px;
+        }
+        
+        .document-date {
+            font-size: 0.85em;
+            color: #999;
+        }
+        
+        .document-viewer-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 4000;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .document-viewer-modal.show {
+            display: flex;
+        }
+        
+        .document-viewer-content {
+            background: white;
+            border-radius: 10px;
+            max-width: 90%;
+            max-height: 90%;
+            width: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .document-viewer-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .document-viewer-title {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .document-viewer-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .document-viewer-body {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .document-viewer-image {
+            max-width: 100%;
+            max-height: 60vh;
+            border-radius: 8px;
+        }
+        
+        .document-viewer-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .doc-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.95em;
+        }
+        
+        .doc-btn-send {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .doc-btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .file-preview {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .file-preview img {
+            max-width: 80px;
+            max-height: 80px;
+            border-radius: 4px;
+        }
+        
+        .file-info {
+            flex: 1;
+            margin-left: 10px;
+        }
+        
+        .remove-file {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        #documentsForm input[type="text"],
+        #documentsForm textarea {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        #documentsForm button[type="submit"] {
+            width: 100%;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+        
+        #documentsForm button[type="submit"]:hover {
+            background: #45a049;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 12px;
+            background: #2196f3;
+            color: white;
+            text-align: center;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .file-input-label:hover {
+            background: #1976d2;
+        }
+        
+        #alert-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        #alert-close-btn:hover {
+            opacity: 0.7;
+        }
+        
+        @media (max-aspect-ratio: 9/16) and (max-width: 768px) {
+            .container {
+                min-height: 85vh;
+                aspect-ratio: 3 / 4;
+            }
+        }
+
+        /* ===== MODAL ATTIVAZIONE BELLISSIMO ===== */
+        #activation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+            box-sizing: border-box;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        #activation-modal.show {
+            display: flex;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .activation-content {
+            background: white;
+            border-radius: 15px;
+            padding: 40px 30px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            animation: slideUp 0.4s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .activation-content .icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        
+        .activation-content h2 {
+            color: #6a1b9a;
+            margin: 0 0 10px;
+            font-size: 1.6em;
+        }
+        
+        .activation-content p {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        
+        .activation-form input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        
+        .activation-form input:focus {
+            outline: none;
+            border-color: #6a1b9a;
+        }
+        
+        .activation-form input.error {
+            border-color: #e74c3c;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        .activation-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .activation-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .activation-button:active {
+            transform: translateY(0);
+        }
+        
+        .activation-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.9em;
+            margin-top: 10px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        .attempts-info {
+            color: #f39c12;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+
+        
+        /* POPUP CONFERMA BELLINO */
+        .confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 5000;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        .confirm-modal.show {
+            display: flex;
+        }
+        
+        .confirm-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px 25px;
+            max-width: 90%;
+            width: 350px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            animation: slideUp 0.3s ease;
+        }
+        
+        .confirm-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+        
+        .confirm-message {
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .confirm-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1em;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .confirm-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .confirm-btn-cancel {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .confirm-btn-yes {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .confirm-btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+    </style>
+<script>
+
+// Funzione per mostrare alert
+function showCustomAlert(message, isError) {
+  const alertDiv = document.createElement('div');
+  alertDiv.textContent = message;
+  alertDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${isError ? '#f44336' : '#4CAF50'};
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    z-index: 10000;
+    font-size: 16px;
+  `;
+  document.body.appendChild(alertDiv);
+  setTimeout(() => alertDiv.remove(), 3000);
+}
+
+// Gestisci click pulsanti
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('📦 DOM caricato, attacco event listeners...');
+  const btnAttiva = document.getElementById('promo-btn');
+  if (btnAttiva) {
+    btnAttiva.addEventListener('click', function() {
+      console.log('👉 Click su pulsante PROMOZIONI (mostra copertina)');
+      const overlay = document.getElementById('cover-overlay');
+      if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.scrollTop = 0;
+      }
+    });
+  }
+  
+  // Helper per chiave VAPID
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  let vapidPublicKeyCache = null;
+
+  async function getVapidPublicKey() {
+    if (vapidPublicKeyCache) {
+      return vapidPublicKeyCache;
+    }
+    const response = await fetch('vapid_keys.php', { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error('Impossibile caricare vapid_keys.php (' + response.status + ')');
+    }
+    const payload = await response.json();
+    if (!payload.public_key) {
+      throw new Error('Chiave pubblica VAPID non trovata');
+    }
+    vapidPublicKeyCache = payload.public_key;
+    return vapidPublicKeyCache;
+  }
+
+  const btnRegistrati = document.getElementById('btnRegistrati');
+  if (btnRegistrati) {
+    btnRegistrati.addEventListener('click', async function() {
+      console.log('👉 Click su pulsante Registrati (VAPID diretto)');
+      try {
+        if (!('serviceWorker' in navigator)) {
+          alert('Service Worker non supportato');
+          return;
+        }
+        const reg = await navigator.serviceWorker.register('sw-toilet-001.js', { 
+          scope: './',
+          updateViaCache: 'none'
+        });
+    
+        if (Notification.permission === 'denied') {
+          alert('Permesso negato. Attiva le notifiche nelle impostazioni.');
+          return;
+        }
+        await navigator.serviceWorker.ready;
+        await reg.update(); // Forza aggiornamento SW
+        await navigator.serviceWorker.ready;
+        await reg.update(); // Forza aggiornamento SW
+
+        await navigator.serviceWorker.ready;
+        const publicKey = await getVapidPublicKey();
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+
+        const activationCode = localStorage.getItem('activationCode') || storage.getItem('activationCode') || '';
+        const activationPhone = localStorage.getItem('activationPhone') || storage.getItem('activationPhone') || '';
+
+        await fetch('push_register_vapid.php', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            subscription: sub.toJSON(),
+            user_id: activationCode || null,
+            telefono: activationPhone || null
+          })
+        });
+
+        alert('✅ Notifiche attivate!');
+      } catch (error) {
+        alert('Errore: ' + error.message);
+      }
+    });
+  }
+});
+</script>
+</head>
+<body>
+<script>
+// Blocca solo iOS aperto in browser in-app (no Android, no Safari nativo)
+(function () {
+    const ua = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+    const isInApp = ua.includes('whatsapp') || ua.includes('instagram') || ua.includes('fb') || ua.includes('telegram');
+
+    if (isIOS && isInApp) {
+        document.body.innerHTML = `
+          <div style="padding:20px;text-align:center;font-family:sans-serif">
+            <h2>⚠️ Apri in Safari</h2>
+            <p>Per installare l’app e ricevere notifiche,<br>apri questo link in <b>Safari</b>.</p>
+            <p>Tocca <b>⋯</b> → <b>Apri nel browser</b></p>
+          </div>
+        `;
+    }
+})();
+</script>
+
+    <!-- Copertina overlay -->
+    <div id="cover-overlay" class="cover-overlay">
+        <div class="cover-box">
+            <input id="cover-title" class="cover-title-input" type="text" placeholder="Titolo" />
+            <div class="cover-message-wrapper">
+                <img id="cover-image" class="cover-image" alt="Logo/Immagine promozione">
+                <textarea id="cover-message" class="cover-textarea" placeholder="Scrivi qui la comunicazione o il testo promo"></textarea>
+            </div>
+            <button id="cover-close-btn" class="cover-button">Vuoi fare una comunicazione?</button>
+        </div>
+    </div>
+
+    <script>
+      let coverPrefilled = false;
+      function setCoverOverlayFromPromo(promo) {
+        if (coverPrefilled) return;
+        if (!promo) return;
+        const titleEl = document.getElementById('cover-title');
+        const msgEl = document.getElementById('cover-message');
+        const imgEl = document.getElementById('cover-image');
+        if (titleEl && promo.titolo) titleEl.value = promo.titolo;
+        if (msgEl && promo.messaggio) msgEl.value = promo.messaggio;
+        if (imgEl) {
+            if (promo.img_url) {
+                imgEl.src = encodeURI(promo.img_url);
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.style.display = 'none';
+            }
+        }
+        coverPrefilled = true;
+      }
+
+      (function initCoverOverlay() {
+        const overlay = document.getElementById('cover-overlay');
+        const titleEl = document.getElementById('cover-title');
+        const msgEl = document.getElementById('cover-message');
+        const imgEl = document.getElementById('cover-image');
+        const btn = document.getElementById('cover-close-btn');
+        if (!overlay || !msgEl || !btn) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const msg = params.get('msg') || '';
+        const titolo = params.get('titolo') || '';
+        const imgUrl = params.get('img_url');
+        if (titleEl) titleEl.value = titolo;
+        msgEl.value = msg;
+        if (imgEl) {
+          if (imgUrl) {
+            imgEl.src = encodeURI(imgUrl);
+            imgEl.style.display = 'block';
+          } else {
+            imgEl.style.display = 'none';
+          }
+        }
+
+        btn.addEventListener('click', () => {
+          overlay.style.display = 'none';
+        });
+      })();
+      // Nasconde automaticamente la copertina solo al primo accesso/installazione
+      (function autoHideCoverOnce() {
+        const KEY = 'coverAutoHideDone';
+        try {
+          const done = localStorage.getItem(KEY) === 'true';
+          if (done) return;
+          const titleEl = document.getElementById('cover-title');
+          const msgEl = document.getElementById('cover-message');
+          const imgEl = document.getElementById('cover-image');
+          const welcomeMsg = document.createElement('div');
+          welcomeMsg.textContent = 'Benvenuto da ristorante da MIMMO! Tra un attimo si apre il calendario.';
+          welcomeMsg.style.cssText = 'text-align:center; margin:10px 0; font-weight:bold; color:#2c3e50;';
+          const box = document.querySelector('.cover-box');
+          if (box) box.prepend(welcomeMsg);
+          const hasPromo =
+            (titleEl && titleEl.value && titleEl.value.trim()) ||
+            (msgEl && msgEl.value && msgEl.value.trim()) ||
+            (imgEl && imgEl.src && imgEl.src.trim() !== '' && imgEl.style.display !== 'none');
+          // Se c'è un contenuto promo, non chiudere automaticamente
+          if (hasPromo) return;
+          setTimeout(function() {
+            const overlay = document.getElementById('cover-overlay');
+            if (overlay) {
+              overlay.style.display = 'none';
+              try { localStorage.setItem(KEY, 'true'); } catch (_) {}
+            }
+          }, 1000);
+        } catch (_) {}
+      })();
+    </script>
+
+   <!-- POPUP CONFERMA BELLINO -->
+    <div id="confirm-modal" class="confirm-modal">
+        <div class="confirm-content">
+            <div class="confirm-icon" id="confirm-icon">❓</div>
+            <div class="confirm-message" id="confirm-message">Sei sicuro?</div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn confirm-btn-cancel" id="confirm-cancel">Annulla</button>
+                <button class="confirm-btn confirm-btn-yes" id="confirm-yes">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ATTIVAZIONE BELLISSIMO -->
+    <div id="activation-modal" onclick="preventCloseIfNoCode(event)">
+        <div class="activation-content">
+            <div class="icon">🔐</div>
+            <h2>Attiva la tua App</h2>
+            <div id="activation-install-warning" style="display:none; background:#fff3cd; color:#856404; padding:15px; border-radius:5px; margin-bottom:15px; border:1px solid #ffc107;">
+                <strong>⚠️ INSTALLA PRIMA L'APP!</strong><br>
+                Prima installa l'app sul telefono, poi inserisci il codice qui.<br>
+                Se inserisci il codice nel browser (non installato), potresti bloccarlo.
+            </div>
+            <p style="display:none">Inserisci il codice di attivazione e il tuo numero di telefono per iniziare</p>
+            
+            <form class="activation-form" onsubmit="event.preventDefault(); attivaApp()">
+                <input 
+                    type="text" 
+                    id="activation-code-input" 
+                    placeholder="Codice di attivazione" 
+                    required
+                    autocomplete="off"
+                >
+                <input 
+                    type="tel" 
+                    id="activation-phone-input" 
+                    placeholder="Numero di telefono" 
+                    required
+                    autocomplete="tel"
+                >
+                <div class="error-message" id="activation-error"></div>
+                <div class="attempts-info" id="attempts-info"></div>
+                <button type="submit" class="activation-button" id="activation-btn">
+                    Attiva Applicazione
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="vet-card">
+            <div style="position: relative; padding: 5px;">
+                <div style="text-align: center;">
+                    <div id="branding-title" style="font-size: 1.8em; font-weight: bold; color: #2c3e50; margin-bottom: 2px;">ristorante da MIMMO</div>
+                    <div id="branding-subtitle" style="font-size: 1.1em; color: #34495e;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="myAppointments" class="my-appointments">
+            <button class="appointment-nav" onclick="previousAppointment()">&lt;</button>
+            <div class="appointment-info" id="appointmentInfo">Caricamento...</div>
+            <button class="appointment-delete" onclick="deleteCurrentAppointment()">X</button>
+            <button class="appointment-nav" onclick="nextAppointment()">&gt;</button>
+        </div>
+
+        <div class="month-selector">
+            <button class="control-button" onclick="changeMonth(-1)">&lt;</button>
+            <span id="current-month-year"></span>
+            <button class="control-button" onclick="changeMonth(1)">&gt;</button>
+        </div>
+
+        <div id="calendar-wrapper">
+            <div class="day-grid" id="calendar-container"></div>
+        </div>
+        
+        <button id="promo-btn" style="width: 100%; padding: 12px; background: #2196f3; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 10px;">
+             PROMOZIONI
+        </button>
+        <button class="help-instructions-button" onclick="openInfoModal()">ISTRUZIONI UTILIZZO</button>
+        <button class="activation-code-button" onclick="openMessageModal()">INVIA MESSAGGIO</button>
+        <button class="send-documents-button" id="btnRegistrati">REGISTRATI QUI</button>
+        <!-- script OneSignal rimosso -->
+    </div>
+    
+    <!-- Modale Impostazioni / Installazione / Privacy -->
+    <div id="infoModal" class="modal" onclick="closeInfoModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3>PRIMA DI PROSEGUIRE DEVI LEGGERE E ACCETTARE LA PRIVACY</h3>
+            <div style="text-align:left">
+                <label style="display:flex; align-items:flex-start; gap:8px;">
+                    <input id="privacyAccept" type="checkbox" onchange="onPrivacyChange(event)" style="width:20px; height:20px; margin-right:8px; cursor:pointer;" />
+                    <span>Ho letto e accetto la <a href="#" onclick="openPrivacy(event)">Privacy</a></span>
+                </label>
+            </div>
+            <button id="instructionsBtn" onclick="openWelcomeFromInfo()">Apri istruzioni</button>
+            <button id="installBtn" onclick="handleInstallClick()" disabled>Installa applicazione di comunicazione</button>
+            <button id="activationBtn" onclick="openActivationModalManual()">Inserisci codice di attivazione</button>
+            <button id="installVoiceBtn" class="btn-green" onclick="handleInstallVoiceClick()" disabled>INSTALLA AGENDA VOCALE GRATIS</button>
+            <button id="closeInfo" onclick="closeInfoModal(event)">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Modale Privacy -->
+    <div id="privacyModal" class="modal" onclick="closePrivacyModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-height:80vh; overflow-y:auto;">
+            <h3>Privacy Policy</h3>
+            <div style="text-align:left; padding:15px 0; line-height:1.6;">
+                <p><strong>Informativa Privacy</strong></p>
+                <p>I tuoi dati personali vengono trattati nel rispetto della normativa sulla privacy (GDPR).</p>
+                <p><strong>Dati raccolti:</strong></p>
+                <ul>
+                    <li>Nome e cognome</li>
+                    <li>Numero di telefono</li>
+                    <li>Informazioni relative agli appuntamenti</li>
+                </ul>
+                <p><strong>Finalità del trattamento:</strong></p>
+                <ul>
+                    <li>Gestione prenotazioni appuntamenti toilettatura</li>
+                    <li>Comunicazioni relative agli appuntamenti</li>
+                    <li>Invio notifiche di promemoria</li>
+                </ul>
+                <p><strong>Conservazione dati:</strong> I dati vengono conservati per il tempo necessario alle finalità indicate.</p>
+                <p><strong>Diritti dell'interessato:</strong> Hai diritto di accesso, rettifica, cancellazione dei dati, opporti al trattamento, e portabilità dei dati.</p>
+                <p><strong>Contatti:</strong> Per esercitare i tuoi diritti, contatta il toilettatore.</p>
+            </div>
+            <button onclick="acceptPrivacy()" style="width:100%; padding:15px; background:#2ecc71; color:white; border:none; border-radius:5px; font-size:1.1em; cursor:pointer; margin-top:15px;">
+                Accetto
+            </button>
+            <button onclick="closePrivacyModal(event)" style="width:100%; padding:10px; margin-top:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">
+                Chiudi
+            </button>
+        </div>
+    </div>
+    
+    <div id="slotModal" class="modal" onclick="closeSlotModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3 id="modalTitle"></h3>
+            
+            <div id="modalContainer">
+                <div id="availableSlotsList"></div>
+
+                <form id="bookingForm" onsubmit="event.preventDefault(); addAppointment()">
+                    <div id="fixedTimeInfo"></div>
+
+                    <input type="text" id="inputNome" placeholder="Nome" required>
+                    <input type="text" id="inputCognome" placeholder="Cognome" required>
+                    <input type="text" id="inputTelefono" placeholder="Telefono" required>
+<!-- <input type="date" id="inputDataNascita" placeholder="Data Nascita" required> -->
+
+
+            <textarea id="inputProblematica" placeholder="Note" rows="3" required></textarea>
+                    
+                    <input type="hidden" id="selectedDateTime">
+
+                    <button type="submit">Invia Prenotazione</button>
+                </form>
+            </div>
+            
+            <button id="closeButton" onclick="closeSlotModal()">Chiudi</button>
+        </div>
+    </div>
+    
+    <!-- Modale invio messaggio -->
+    <div id="message-modal" class="modal" onclick="closeMessageModal(event)">
+        <div class="modal-content message-modal-content" onclick="event.stopPropagation()">
+            <h3>Scrivi il tuo messaggio</h3>
+            <div class="message-error" id="message-error">Compila tutti i campi</div>
+            <div class="message-form-group">
+                <label for="message-name">Nome</label>
+                <input type="text" id="message-name" placeholder="Il tuo nome" required>
+            </div>
+            <div class="message-form-group">
+                <label for="message-phone">Telefono</label>
+                <input type="tel" id="message-phone" placeholder="Il tuo telefono" required>
+            </div>
+            <div class="message-form-group">
+                <label for="message-text">Messaggio</label>
+                <textarea id="message-text" placeholder="Scrivi qui il tuo messaggio..." rows="4" required></textarea>
+            </div>
+            <div class="message-buttons">
+                <button class="message-btn send" onclick="submitMessage(event)">INVIA</button>
+                <button class="message-btn cancel" onclick="closeMessageModal()">ANNULLA</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-alert">
+        <button id="alert-close-btn" onclick="closeAlert()">×</button>
+        <span id="alert-message"></span>
+    </div>
+    
+    <!-- MODAL VISUALIZZAZIONE DOCUMENTO -->
+    <div id="document-viewer-modal" class="document-viewer-modal">
+        <div class="document-viewer-content">
+            <div class="document-viewer-header">
+                <div class="document-viewer-title" id="viewer-doc-title">Documento</div>
+                <button class="document-viewer-close" onclick="closeDocumentViewer()">×</button>
+            </div>
+            <div class="document-viewer-body" id="viewer-doc-body">
+                <!-- Contenuto documento -->
+            </div>
+            <div class="document-viewer-footer">
+                <button class="doc-btn doc-btn-send" onclick="sendSingleDocument()">📧 Invia al Toilettatore</button>
+                <button class="doc-btn doc-btn-delete" onclick="deleteSingleDocument()">🗑️ Elimina</button>
+            </div>
+        </div>
+    </div>
+    
+    <button class="help-button" onclick="openWelcomeModal()">?</button>
+    
+    <div id="welcome-modal">
+        <div class="welcome-content">
+            <button class="welcome-close" onclick="closeWelcomeModal()">×</button>
+            <h2 data-branding="welcome_title">👋 Ciao e benvenuto nella nostra applicazione!</h2>
+            <p><strong>📘 ISTRUZIONI</strong></p>
+            <p><strong>📲 INSTALLA APPLICAZIONE DI COMUNICAZIONE</strong><br>Clicca sul bottone blu "INSTALLA APPLICAZIONE" per installare l'app sul tuo telefono.</p>
+            <p><strong>🎙️ INSTALLA AGENDA VOCALE GRATIS</strong><br>Clicca sul bottone verde "INSTALLA AGENDA VOCALE" per scaricare la nostra agenda vocale da usare gratis per sempre.</p>
+            <p><strong>📅 COME USARE L'AGENDA DI COMUNICAZIONE:</strong><br>Se vuoi prenotare o comunicare con noi, clicca sul giorno che preferisci nel calendario. Il gestore riceverà automaticamente la tua comunicazione.</p>
+            <p><strong>🎁 RICEVI LE PROMOZIONI:</strong><br>Clicca su "REGISTRATI QUI" per attivare le promozioni e ricevere le nostre offerte speciali.</p>
+            <p data-branding="welcome_intro">👋 È il modo più semplice per restare in contatto con la nostra attività e ricevere tutto ciò che può esserti utile.</p>
+            <p data-branding="welcome_bullet_1">📨 Ricevi aggiornamenti, promozioni e offerte dedicate</p>
+            <p data-branding="welcome_bullet_2">💬 Scrivici quando vuoi per domande o informazioni</p>
+            <p data-branding="welcome_bullet_3">🔔 Rimani informato su novità e comunicazioni importanti</p>
+            <p data-branding="welcome_bullet_4">📅 E quando ti serve, puoi anche inviare una richiesta di prenotazione in pochi passaggi</p>
+            <p data-branding="welcome_closing">🤝 Questa applicazione è pensata per rendere ogni comunicazione più semplice, veloce e vantaggiosa per te</p>
+            <button class="welcome-button" onclick="closeWelcomeAndFocusInstall()">Ho capito!</button>
+        </div>
+    </div>
+    
+    <!-- Archivio documenti disattivato -->
+
+    <script>
+        // ========================================
+        // 🔑 SISTEMA DINAMICO TOELETTATURA
+        // ========================================
+        let AGENDA_ID = 'TEMP'; // Temporaneo, verrà sostituito dal codice attivazione
+        let VET_CONFIG = null; // Configurazione toilettatore caricata dal JSON
+        
+        // Funzione per estrarre il prefisso dal codice (es: AMADORI-VET123 → AMADORI)
+        function getPrefissoFromCodice(codice) {
+            if (!codice || typeof codice !== 'string') return null;
+            const parts = codice.split('-');
+            return parts.length > 0 ? parts[0].toUpperCase() : null;
+        }
+        
+        // Funzione per caricare la configurazione del toilettatore
+        async function loadVetConfig(prefisso) {
+            try {
+                const url = 'amadori-config.json';
+                console.log('🔍 Caricamento config toilettatore:', url);
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Config non trovata per ${prefisso}`);
+                }
+                const config = await response.json();
+                console.log('✅ Config caricata:', config);
+                return config;
+            } catch (error) {
+                console.error('❌ Errore caricamento config:', error);
+                return null;
+            }
+        }
+        
+        // Funzione per aggiornare il titolo con i dati del toilettatore
+        function updateVetInfo() {
+            if (!VET_CONFIG) return;
+            
+            const vetCardTitle = document.querySelector('.vet-card h2 span');
+            if (vetCardTitle) {
+                vetCardTitle.innerHTML = `
+                    ${VET_CONFIG.nome_centro} - ${VET_CONFIG.nome_toilettatura} 
+                `;
+            }
+        }
+        
+        // Rileva modalità PWA vs muletto (browser)
+        const IS_STANDALONE = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        const IS_MULETTO = !IS_STANDALONE;
+
+        // DISABILITATO: Non cancellare il codice in modalità muletto
+        // Questo causava la perdita del codice di attivazione
+        // if (IS_MULETTO) {
+        //     try {
+        //         localStorage.removeItem('activationCode');
+        //         localStorage.removeItem('activationPhone');
+        //     } catch (_) {}
+        // }
+
+        // Funzioni helper per localStorage con prefisso unico
+        const storage = {
+            setItem: (key, value) => localStorage.setItem(AGENDA_ID + '_' + key, value),
+            getItem: (key) => localStorage.getItem(AGENDA_ID + '_' + key),
+            removeItem: (key) => localStorage.removeItem(AGENDA_ID + '_' + key),
+            clear: () => {
+                // Cancella solo le chiavi di questa agenda
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith(AGENDA_ID + '_')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+            }
+        };
+        
+        // ========================================
+        // SISTEMA AUTO-DIAGNOSI ERRORI
+        // Controlla automaticamente il file all'avvio
+        // ========================================
+        (function() {
+            const errors = [];
+            
+            // Controlla funzioni critiche del calendario
+            const criticalFunctions = [
+                'updateCalendar',
+                'renderCustomGrid',
+                'showSlotList',
+                'refreshGlobalAppointments'
+            ];
+            
+            // Verifica dopo il caricamento del DOM
+            window.addEventListener('DOMContentLoaded', function() {
+                console.log(' AUTO-DIAGNOSI: Controllo integrità file...');
+                
+                // Controlla elementi DOM critici
+                const criticalElements = [
+                    'calendar-container',
+                    'current-month-year',
+                    'slotModal',
+                    'bookingForm'
+                ];
+                
+                criticalElements.forEach(id => {
+                    if (!document.getElementById(id)) {
+                        errors.push(` ERRORE: Elemento DOM mancante: #${id}`);
+                    }
+                });
+                
+                // Mostra risultati
+                if (errors.length > 0) {
+                    console.error(' ERRORI TROVATI NEL FILE! ');
+                    errors.forEach(err => console.error(err));
+                    
+                    // Alert visibile
+                    alert(' ERRORE NEL FILE!\n\n' + errors.join('\n') + '\n\nControlla la console F12 per dettagli.');
+                    
+                    // Banner rosso in pagina
+                    const banner = document.createElement('div');
+                    banner.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:#e74c3c;color:white;padding:15px;text-align:center;z-index:99999;font-weight:bold;font-size:16px;';
+                    banner.innerHTML = ' ERRORE NEL FILE - Controlla Console F12 ';
+                    document.body.insertBefore(banner, document.body.firstChild);
+                } else {
+                    console.log(' AUTO-DIAGNOSI: File OK - Nessun errore trovato');
+                }
+            });
+            
+            // Controlla funzioni dopo 2 secondi (quando tutto è caricato)
+            setTimeout(function() {
+                criticalFunctions.forEach(funcName => {
+                    if (typeof window[funcName] !== 'function') {
+                        const err = ` ERRORE: Funzione critica mancante: ${funcName}()`;
+                        console.error(err);
+                        if (!errors.includes(err)) {
+                            errors.push(err);
+                        }
+                    }
+                });
+                
+                if (errors.length > 0) {
+                    console.error(' FUNZIONI MANCANTI!');
+                    errors.forEach(err => console.error(err));
+                }
+            }, 2000);
+        })();
+        
+        // ===== POPUP CONFERMA BELLINO =====
+        function showConfirm(message, icon = '', type = 'yes') {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                const messageEl = document.getElementById('confirm-message');
+                const iconEl = document.getElementById('confirm-icon');
+                const yesBtn = document.getElementById('confirm-yes');
+                const cancelBtn = document.getElementById('confirm-cancel');
+                
+                messageEl.textContent = message;
+                iconEl.textContent = icon;
+                
+                // Cambia colore pulsante in base al tipo
+                yesBtn.className = 'confirm-btn';
+                if (type === 'delete') {
+                    yesBtn.classList.add('confirm-btn-delete');
+                    yesBtn.textContent = 'Elimina';
+                } else {
+                    yesBtn.classList.add('confirm-btn-yes');
+                    yesBtn.textContent = 'Conferma';
+                }
+                
+                modal.classList.add('show');
+            modal.style.display = 'flex';
+                
+                const handleYes = () => {
+                    modal.classList.remove('show');
+                    cleanup();
+                    resolve(true);
+                };
+                
+                const handleCancel = () => {
+                    modal.classList.remove('show');
+                    cleanup();
+                    resolve(false);
+                };
+                
+                const cleanup = () => {
+                    yesBtn.removeEventListener('click', handleYes);
+                    cancelBtn.removeEventListener('click', handleCancel);
+                };
+                
+                yesBtn.addEventListener('click', handleYes);
+                cancelBtn.addEventListener('click', handleCancel);
+            });
+        }
+        
+        // ===== SISTEMA ATTIVAZIONE CON TENTATIVI =====
+        let attemptsRemaining = 20;
+        const MAX_ATTEMPTS = 20;
+        
+        function generateDeviceId(codice) {
+            // Genera un deviceId unico basato sul codice di attivazione
+            // Così ogni agenda (codice diverso) ha un deviceId diverso
+            const baseId = localStorage.getItem('device_id_base');
+            if (!baseId) {
+                const newBaseId = 'BASE-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('device_id_base', newBaseId);
+            }
+            const finalDeviceId = 'DEVICE-' + codice + '-' + (localStorage.getItem('device_id_base') || 'DEFAULT');
+            console.log('🔑 Device ID per codice', codice + ':', finalDeviceId);
+            return finalDeviceId;
+        }
+        
+        async function verificaAutorizzazione() {
+            // Questa funzione viene chiamata SOLO se IS_STANDALONE (app installata)
+            // Controlla PRIMA senza prefisso (più affidabile), poi con prefisso
+            let codice = localStorage.getItem('activationCode');
+            let telefono = localStorage.getItem('activationPhone');
+            
+            // Se non trova senza prefisso, prova con prefisso (per compatibilità)
+            if (!codice || !telefono) {
+                codice = storage.getItem('activationCode');
+                telefono = storage.getItem('activationPhone');
+            }
+            
+            if (!codice || !telefono) {
+                // ===== TEMPORANEAMENTE DISABILITATO PER VEDERE L'APP SENZA PASSWORD =====
+                // MOSTRA MODAL ATTIVAZIONE OBBLIGATORIO - App non attivata
+                console.log('⚠️ App non attivata - Modal attivazione DISABILITATO temporaneamente');
+                /* COMMENTATO PER TEST
+                const modal = document.getElementById('activation-modal');
+                const container = document.querySelector('.container');
+                
+                if (modal) {
+                    modal.classList.add('show');
+            modal.style.display = 'flex';
+                    modal.style.display = 'flex';
+                }
+                */
+                // Nascondi container principale finché non attivata
+                /* COMMENTATO PER TEST
+                if (container) {
+                    container.style.display = 'none';
+                }
+                
+                return false;
+                */ // FINE COMMENTO - Ora l'app si vede senza password
+            }
+            
+            // Se il codice esiste in localStorage, consideralo VALIDO (già verificato in activation.php)
+            // Carica config toilettatore
+            if (codice) {
+                const prefisso = getPrefissoFromCodice(codice);
+                if (prefisso) {
+                    AGENDA_ID = prefisso;
+                    VET_CONFIG = await loadVetConfig(prefisso);
+                    if (VET_CONFIG) {
+                        updateVetInfo(); // Aggiorna il titolo con i dati del toilettatore
+                    }
+                }
+            }
+            
+            // NASCONDI modale e MOSTRA container - codice trovato in localStorage
+            const modal = document.getElementById('activation-modal');
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
+            
+            const container = document.querySelector('.container');
+            if (container) {
+                container.style.display = 'flex';
+            }
+            
+            console.log('✅ App già attivata - Codice:', codice);
+            return true;
+        }
+        
+        function bloccaApplicazione() {
+            // Disabilitato su richiesta: non bloccare l'applicazione
+            console.warn('bloccaApplicazione: blocco disabilitato, l\'app continua senza lock');
+        }
+        
+        async function attivaApp() {
+            // BLOCCA se non installata: deve installare PRIMA
+            if (IS_MULETTO) {
+                showActivationError('⚠️ INSTALLA PRIMA L\'APP!\n\nPrima installa l\'app sul telefono, poi inserisci il codice.\nSe inserisci il codice nel browser, potresti bloccarlo.');
+                return;
+            }
+
+            const codice = document.getElementById('activation-code-input').value.trim().toUpperCase();
+            const telefono = document.getElementById('activation-phone-input').value.trim();
+            const errorEl = document.getElementById('activation-error');
+            const attemptsEl = document.getElementById('attempts-info');
+            const btn = document.getElementById('activation-btn');
+            const codeInput = document.getElementById('activation-code-input');
+            const phoneInput = document.getElementById('activation-phone-input');
+            
+            if (!codice || !telefono) {
+                showActivationError('Inserisci sia il codice che il telefono');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = 'Verifica in corso...';
+            
+            const deviceId = generateDeviceId(codice);
+            
+            try {
+                    const response = await fetch('activation.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        action: 'verify',
+                        code: codice,
+                        telefono: telefono,
+                        deviceId: deviceId 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success === true) {
+                    // Estrai prefisso PRIMA di salvare
+                    const prefisso = getPrefissoFromCodice(codice);
+                    if (prefisso) {
+                        AGENDA_ID = prefisso; // Imposta AGENDA_ID con il prefisso
+                    }
+                    
+                    // Salva attivazione solo in PWA, non nel muletto
+                    if (IS_STANDALONE) {
+                        storage.setItem('activationCode', codice);
+                        storage.setItem('activationPhone', telefono);
+                        storage.setItem('user_id', codice);
+                        // Salva ANCHE senza prefisso per compatibilità al reload
+                        localStorage.setItem('activationCode', codice);
+                        localStorage.setItem('activationPhone', telefono);
+                        localStorage.setItem('user_id', codice);
+                        localStorage.setItem(ACTIVATION_OK_KEY, 'true');
+                    }
+                    
+                    // Carica config toilettatore
+                    if (prefisso) {
+                        VET_CONFIG = await loadVetConfig(prefisso);
+                        if (VET_CONFIG) {
+                            console.log('✅ Config toilettatore caricata:', VET_CONFIG);
+                            updateVetInfo();
+                        }
+                    }
+                    
+                    // NASCONDI modale e MOSTRA container solo dopo attivazione riuscita
+                    const modal = document.getElementById('activation-modal');
+                    if (modal) {
+                        modal.classList.remove('show');
+                        modal.style.display = 'none';
+                    }
+                    const container = document.querySelector('.container');
+                    if (container) container.style.display = 'flex';
+                    
+                    errorEl.textContent = '✅ Attivazione completata!';
+                    errorEl.style.color = '#27ae60';
+                    errorEl.classList.add('show');
+                    
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                    
+                } else {
+                    // Gestione errori dal nuovo sistema
+                    attemptsRemaining--;
+                    
+                    let errorMessage = result.message || 'Errore durante l\'attivazione';
+                    
+                    if (result.error === 'ALREADY_REGISTERED') {
+                        // In muletto: resta demo senza messaggio bloccante
+                        if (IS_MULETTO) {
+                            console.warn('ALREADY_REGISTERED (demo): nessun blocco, resta muletto');
+                            return;
+                        }
+                        errorMessage = '❌ Codice già in uso su altro dispositivo';
+                    } else if (result.error === 'INVALID_CODE') {
+                        errorMessage = '❌ Codice non valido';
+                    } else if (result.error === 'CODE_DISABLED') {
+                        errorMessage = '❌ Codice disattivato';
+                    }
+                    
+                    showActivationError(errorMessage);
+                    codeInput.classList.add('error');
+                    setTimeout(() => codeInput.classList.remove('error'), 500);
+                    
+                    if (attemptsRemaining > 0) {
+                        attemptsEl.textContent = `Tentativi rimasti: ${attemptsRemaining}/${MAX_ATTEMPTS}`;
+                    } else {
+                        bloccaApplicazione();
+                    }
+                }
+                
+            } catch (error) {
+                showActivationError('❌ Errore di connessione. Riprova.');
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Attiva Applicazione';
+            }
+        }
+        
+        function showActivationError(message) {
+            const errorEl = document.getElementById('activation-error');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => {
+                errorEl.classList.remove('show');
+            }, 3000);
+        }
+
+        // Impedisce chiusura modale attivazione se non c'è codice
+        function preventCloseIfNoCode(event) {
+            // Se clicca fuori dal contenuto (sullo sfondo), controlla se c'è codice
+            if (event.target.id === 'activation-modal') {
+                // Solo in app installata: impedisci chiusura se non attivata
+                if (IS_STANDALONE) {
+                    let codice = storage.getItem('activationCode');
+                    let telefono = storage.getItem('activationPhone');
+                    
+                    // Fallback senza prefisso
+                    if (!codice || !telefono) {
+                        codice = localStorage.getItem('activationCode');
+                        telefono = localStorage.getItem('activationPhone');
+                    }
+                    
+                    // Se non c'è codice, NON chiudere il modale (BLOCCO OBBLIGATORIO)
+                    if (!codice || !telefono) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        console.log('🚫 Modal attivazione NON chiudibile - App non attivata');
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // ===== Modale messaggi cliente =====
+        function openMessageModal() {
+            const modal = document.getElementById('message-modal');
+            const err = document.getElementById('message-error');
+            if (err) err.style.display = 'none';
+            ['message-name','message-phone','message-text'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeMessageModal(event) {
+            if (event && event.target && event.target.id === 'message-modal') {
+                document.getElementById('message-modal').style.display = 'none';
+                return;
+            }
+            if (!event || !event.target || event.target.id === 'message-modal' || event.target.closest('.message-modal-content') === null) {
+                const modal = document.getElementById('message-modal');
+                if (modal) modal.style.display = 'none';
+            } else {
+                const modal = document.getElementById('message-modal');
+                if (modal) modal.style.display = 'none';
+            }
+        }
+
+        async function submitMessage(ev) {
+            if (ev) ev.preventDefault();
+            const nameEl = document.getElementById('message-name');
+            const phoneEl = document.getElementById('message-phone');
+            const textEl = document.getElementById('message-text');
+            const errEl = document.getElementById('message-error');
+            const nome = nameEl ? nameEl.value.trim() : '';
+            const telefono = phoneEl ? phoneEl.value.trim() : '';
+            const testo = textEl ? textEl.value.trim() : '';
+            if (!nome || !telefono || !testo) {
+                if (errEl) {
+                    errEl.textContent = 'Compila tutti i campi';
+                    errEl.style.display = 'block';
+                }
+                return;
+            }
+            if (errEl) errEl.style.display = 'none';
+            try {
+                const res = await fetch('api.php?action=message', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tipo: 'messaggio',
+                        nome_cliente: nome,
+                        telefono_cliente: telefono,
+                        testo_messaggio: testo
+                    })
+                });
+                const result = await res.json();
+                if (!res.ok || result.success === false) {
+                    if (errEl) {
+                        errEl.textContent = result.message || 'Errore invio messaggio';
+                        errEl.style.display = 'block';
+                    }
+                } else {
+                    if (typeof showCustomAlert === 'function') {
+                        showCustomAlert('Messaggio inviato', false);
+                    }
+                    closeMessageModal();
+                }
+            } catch (error) {
+                if (errEl) {
+                    errEl.textContent = 'Errore di rete';
+                    errEl.style.display = 'block';
+                }
+                console.error('submitMessage error:', error);
+            }
+        }
+        
+                function openActivationModalManual() {
+            console.log("?? DEBUG openActivationModalManual - IS_MULETTO:", IS_MULETTO, "IS_STANDALONE:", IS_STANDALONE);
+            const installedFlag = window.matchMedia('(display-mode: standalone)').matches ||
+                                  window.navigator.standalone === true ||
+                                  document.referrer.includes('android-app://') ||
+                                  localStorage.getItem(APP_INSTALLED_KEY) === "true";
+
+            // Blocca solo se l'app non risulta installata
+            if (!installedFlag) {
+                showCustomAlert('?? INSTALLA PRIMA L\'APP!\n\nIl codice di attivazione può essere inserito solo dopo aver installato l\'app sul telefono.\n\nVai su "ISTRUZIONI UTILIZZO" per installare l\'app.', true);
+                return;
+            }
+
+            // App installata: apri sempre la modale (anche se esiste già un codice)
+            const modal = document.getElementById('activation-modal');
+            modal.classList.add('show');
+            modal.style.display = 'flex';
+
+            const warningEl = document.getElementById('activation-install-warning');
+            if (warningEl) warningEl.style.display = 'none';
+
+            const form = modal.querySelector('.activation-form');
+            if (form) {
+                form.querySelectorAll('input, button').forEach(el => el.disabled = false);
+            }
+        };
+    
+        // ===== CONFIGURAZIONE =====
+        const workingHours = {
+            start: '08:00',
+            end: '20:30',
+            interval: 30
+        };
+
+        let currentDate = new Date();
+        currentDate.setDate(1); // Parti dal primo giorno del mese corrente
+
+        let currentSelectedDate = null;
+        let currentSelectedTime = null;
+        
+        let myAppointmentsList = [];
+        let currentAppointmentIndex = 0;
+        
+        let globalAppointmentsCache = [];
+        let isModalOpen = false;
+        
+        let notifiedAppointments = new Set(JSON.parse(localStorage.getItem('notifiedAppointments') || '[]'));
+        let isFirstLoad = true;
+        let popupQueue = [];
+        let isShowingPopup = false;
+        let currentPopupId = null;
+          
+        function addToPopupQueue(id, message, isError) {
+            const item = { id, message, isError: !!isError };
+            popupQueue.push(item);
+            if (!isShowingPopup) {
+                showNextPopup();
+            }
+        }
+
+        function showNextPopup() {
+            if (popupQueue.length === 0) {
+                isShowingPopup = false;
+                currentPopupId = null;
+                return;
+            }
+            
+            isShowingPopup = true;
+            const popup = popupQueue.shift();
+            currentPopupId = popup.id;
+            
+            showCustomAlert(popup.message, popup.isError);
+            // Nessuna auto‑chiusura qui: si chiude solo con la X (closeAlert)
+        }
+        // ===== POLLING GLOBALE =====
+        async function refreshGlobalAppointments() {
+            try {
+                console.log('🔄 Aggiornamento appuntamenti in corso...');
+                const response = await fetch('api.php');
+
+                
+                if (!response.ok) {
+                    console.error('❌ Errore HTTP:', response.status, response.statusText);
+                    return;
+                }
+                
+                globalAppointmentsCache = await response.json();
+                console.log('✅ Appuntamenti caricati:', globalAppointmentsCache.length, 'totali');
+                
+                // Mostra appuntamenti per debug
+                if (globalAppointmentsCache.length > 0) {
+                    console.log('📅 Primi 3 appuntamenti:', globalAppointmentsCache.slice(0, 3).map(a => ({
+                        data: a.start?.substring(0, 10),
+                        ora: a.start?.substring(11, 16),
+                        cliente: a.extendedProps?.cliente || a.title
+                    })));
+                }
+                
+                checkForConfirmedAppointments();
+                
+                if (isModalOpen && currentSelectedDate) {
+                    await loadSlots(currentSelectedDate, document.getElementById('availableSlotsList'));
+                }
+                
+            } catch (error) {
+                console.error('❌ ERRORE polling globale:', error);
+                console.error('❌ Tipo errore:', error.name);
+                console.error('❌ Messaggio:', error.message);
+            }
+        }
+        function checkForConfirmedAppointments() {
+            const stored = JSON.parse(localStorage.getItem('myAppointmentIds') || '[]');
+            const awaiting = Array.isArray(stored) ? stored.filter(a => a && a.awaitingConfirmation) : [];
+            const myIds = awaiting.map(a => parseInt(a.id, 10)).filter(Boolean);
+            if (myIds.length === 0) return;
+
+            const shownPopups = JSON.parse(localStorage.getItem('shownPopups') || '[]');
+            const cache = Array.isArray(globalAppointmentsCache) ? globalAppointmentsCache : [];
+
+            const mieConfermati = cache.filter(appt => {
+                const id = parseInt(appt?.id, 10);
+                const status = appt?.extendedProps?.status;
+                return myIds.includes(id) && (status === 'confirmed' || status === 'confermato');
+            });
+
+            if (mieConfermati.length === 0) return;
+
+            // Costruisci mappa per aggiornare awaitingConfirmation
+            const awaitingMap = new Map(awaiting.map(a => [parseInt(a.id,10), a]));
+            const updated = [...stored];
+
+            mieConfermati.forEach(appt => {
+                const popupId = 'confirm_' + appt.id;
+                if (!shownPopups.includes(popupId)) {
+                    const date = new Date(appt.start);
+                    const dateStr = date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+                    const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+                    const nome = appt.extendedProps?.cliente || appt.extendedProps?.customer_name || '';
+                    const primoNome = (nome.split(' ')[0]) || '';
+
+                    let messaggio = `Ciao ${primoNome}! ✅ Confermato il tuo appuntamento`;
+                    messaggio += ` per ${dateStr} alle ${timeStr}. Ti aspettiamo!`;
+
+                    // Suono conferma appuntamento 🔊 (TEMPORANEAMENTE DISATTIVATO)
+                    /* try {
+                        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        const osc1 = audioContext.createOscillator();
+                        const gain1 = audioContext.createGain();
+                        osc1.connect(gain1);
+                        gain1.connect(audioContext.destination);
+                        osc1.frequency.value = 1200;
+                        gain1.gain.value = 0.4;
+                        osc1.start(audioContext.currentTime);
+                        osc1.stop(audioContext.currentTime + 0.15);
+                        
+                        const osc2 = audioContext.createOscillator();
+                        const gain2 = audioContext.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(audioContext.destination);
+                        osc2.frequency.value = 900;
+                        gain2.gain.value = 0.4;
+                        osc2.start(audioContext.currentTime + 0.2);
+                        osc2.stop(audioContext.currentTime + 0.4);
+                        
+                        console.log('🔊 Suono conferma riprodotto!');
+                    } catch (e) {
+                        console.log('⚠️ Suono conferma non riproducibile:', e);
+                    } */
+
+                    addToPopupQueue(popupId, messaggio, false);
+
+                    // segna come mostrato e disattiva awaiting
+                    shownPopups.push(popupId);
+                    const entry = awaitingMap.get(parseInt(appt.id,10));
+                    if (entry) entry.awaitingConfirmation = false;
+                }
+            });
+
+            localStorage.setItem('shownPopups', JSON.stringify(shownPopups));
+            localStorage.setItem('myAppointmentIds', JSON.stringify(updated.map(it => {
+                const e = awaitingMap.get(parseInt(it.id,10));
+                return e ? { ...it, awaitingConfirmation: e.awaitingConfirmation } : it;
+            })));
+        }
+       
+        // ========================================
+        // ⚠️ ATTENZIONE AI/ASSISTENTI: NON MODIFICARE QUESTA SEZIONE!
+        // ⚠️ CRITICAL CALENDAR FUNCTIONS - DO NOT EDIT OR REMOVE!
+        // ⚠️ Queste funzioni sono ESSENZIALI per il funzionamento del calendario
+        // ⚠️ Qualsiasi modifica romperà il sistema di prenotazione
+        // ========================================
+        
+        setInterval(refreshGlobalAppointments, 8000);
+          refreshGlobalAppointments();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshGlobalAppointments(); }); 
+        function updateCalendar() {
+            const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const monthFormatter = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' });
+            document.getElementById('current-month-year').textContent = monthFormatter.format(currentDate);
+            renderCustomGrid(firstDayOfMonth);
+        }
+
+        function renderCustomGrid(firstDayOfMonth) {
+               const calendarContainer = document.getElementById('calendar-container');
+if (!calendarContainer) { console.warn('calendar-container mancante'); return; }
+try {
+    calendarContainer.innerHTML = '';
+} catch (e) {
+    console.error('reset calendario fallito:', e);
+    return;
+}
+// Ripristina eventuali stili inline imposti in precedenza (per tornare a 2 righe da CSS)
+calendarContainer.style.gridTemplateColumns = '';
+calendarContainer.style.width = '';
+
+            // Calcola numero giorni reali del mese
+            const year = firstDayOfMonth.getFullYear();
+            const month = firstDayOfMonth.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // Costruzione caselle dei soli giorni del mese corrente
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < daysInMonth; i++) {
+                const day = new Date(year, month, 1 + i);
+                const dayBox = document.createElement('div');
+                dayBox.className = 'day-box available';
+                dayBox.innerHTML = `${day.getDate()}`;
+
+                const yyyy = day.getFullYear();
+                const mm = String(day.getMonth() + 1).padStart(2, '0');
+                const dd = String(day.getDate()).padStart(2, '0');
+                const dateLocal = `${yyyy}-${mm}-${dd}`;
+                dayBox.setAttribute('data-date', dateLocal);
+
+                dayBox.onclick = function() {
+                    document.querySelectorAll('.day-box').forEach(el => el.classList.remove('selected'));
+                    this.classList.add('selected');
+                    showSlotList(this.getAttribute('data-date'));
+                };
+
+                fragment.appendChild(dayBox);
+            }
+            calendarContainer.appendChild(fragment);
+
+            // Disposizione esatta su 2 righe: colonne = ceil(giorni/2)
+            const cols = Math.ceil(daysInMonth / 2);
+            const sample = calendarContainer.querySelector('.day-box');
+            const boxW = sample ? sample.offsetWidth : 60;
+            if (cols > 0 && boxW > 0) {
+                calendarContainer.style.gridTemplateColumns = `repeat(${cols}, ${boxW}px)`;
+                calendarContainer.style.width = 'max-content';
+            }
+        }
+        
+        // ========================================
+        // ⚠️ FINE SEZIONE CRITICA CALENDARIO - DO NOT EDIT ABOVE!
+        // ========================================
+        
+        async function showSlotList(dateStr) {
+            // Blocca se non installata (muletto/browser)
+            if (IS_MULETTO) {
+                showCustomAlert('⚠️ INSTALLA PRIMA L\'APP!\n\nLe prenotazioni sono disponibili solo dopo aver installato l\'app sul telefono.\n\nVai su "ISTRUZIONI UTILIZZO" per installare l\'app.', true);
+                return;
+            }
+            
+            currentSelectedDate = dateStr;
+            isModalOpen = true;
+            
+            document.getElementById('modalTitle').textContent = `Orari disponibili per il ${new Date(dateStr).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })}`;
+            
+            const listEl = document.getElementById('availableSlotsList');
+            
+            document.getElementById('bookingForm').style.display = 'none';
+            listEl.style.display = 'block';
+
+            await loadSlots(dateStr, listEl);
+
+            document.getElementById('slotModal').style.display = 'flex';
+        }
+        
+        async function loadSlots(dateStr, listEl) {
+            try {
+                console.log('🔍 Caricamento slot per data:', dateStr);
+                const appointments = globalAppointmentsCache;
+                console.log('📦 Appuntamenti totali in cache:', appointments.length);
+                
+                const oggi = new Date();
+                oggi.setHours(0, 0, 0, 0);
+                
+                // Filtra appuntamenti per la data selezionata
+                const apptsDelGiorno = appointments.filter(appt => {
+                    if (!appt.start) return false;
+                    return appt.start.startsWith(dateStr);
+                });
+                
+                console.log('📅 Appuntamenti trovati per', dateStr, ':', apptsDelGiorno.length);
+                if (apptsDelGiorno.length > 0) {
+                    console.log('🕐 Orari occupati:', apptsDelGiorno.map(a => a.start.substring(11, 16)));
+                }
+                
+                const occupiedSlots = appointments
+                    .filter(appt => {
+                        if (!appt.start) return false;
+                        return appt.start.startsWith(dateStr);
+                    })
+                    .map(appt => appt.start.substring(11, 16));
+                
+                console.log('🔒 Slot occupati estratti:', occupiedSlots);
+                
+                const slots = getAvailableSlots(dateStr, occupiedSlots);
+                
+                listEl.innerHTML = '';
+                
+                if (slots.free.length === 0 && slots.occupied.length === 0) {
+                    listEl.innerHTML = '<p style="text-align:center;">Nessun orario disponibile.</p>';
+                } else {
+                    const allSlots = [];
+                    
+                    slots.free.forEach(slot => {
+                        allSlots.push({ time: slot, available: true });
+                    });
+                    
+                    slots.occupied.forEach(slot => {
+                        allSlots.push({ time: slot, available: false });
+                    });
+                    
+                    allSlots.sort((a, b) => a.time.localeCompare(b.time));
+                    
+                    allSlots.forEach(slot => {
+                        const slotDiv = document.createElement('div');
+                        
+                        if (slot.available) {
+                            slotDiv.className = 'slot-time';
+                            slotDiv.textContent = slot.time + ' - Disponibile';
+                            slotDiv.onclick = function() {
+                                currentSelectedTime = slot.time;
+                                showBookingForm();
+                            };
+                        } else {
+                            slotDiv.className = 'slot-time occupied';
+                            slotDiv.textContent = slot.time + ' - Occupato';
+                        }
+                        
+                        listEl.appendChild(slotDiv);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Errore nel caricamento slot:', error);
+                listEl.innerHTML = '<p style="text-align:center;">Errore nel caricamento. Riprova.</p>';
+            }
+        }
+        
+        function showBookingForm() {
+            document.getElementById('availableSlotsList').style.display = 'none';
+            document.getElementById('modalTitle').textContent = `Conferma la Prenotazione`;
+            
+            const formattedDate = new Date(currentSelectedDate).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+            document.getElementById('fixedTimeInfo').textContent = `${formattedDate} alle ${currentSelectedTime}`;
+            document.getElementById('selectedDateTime').value = `${currentSelectedDate}T${currentSelectedTime}`;
+            
+            loadUserData();
+            document.getElementById('bookingForm').style.display = 'block';
+            document.getElementById('inputNome').focus();
+        }
+
+        function saveUserData(nome, cognome, telefono) {
+            if (typeof(Storage) !== "undefined") {
+                localStorage.setItem("userNome", nome);
+                localStorage.setItem("userCognome", cognome);
+                localStorage.setItem("userTelefono", telefono);
+            }
+        }
+
+        function loadUserData() {
+            if (typeof(Storage) !== "undefined") {
+                document.getElementById('inputNome').value = localStorage.getItem("userNome") || '';
+                document.getElementById('inputCognome').value = localStorage.getItem("userCognome") || '';
+                document.getElementById('inputTelefono').value = localStorage.getItem("userTelefono") || '';
+            }
+        }
+
+        async function addAppointment() {
+            // Blocca se non installata (muletto/browser)
+            if (IS_MULETTO) {
+                showCustomAlert('⚠️ INSTALLA PRIMA L\'APP!\n\nQuesta funzione è disponibile solo dopo aver installato l\'app sul telefono.\n\nVai su "ISTRUZIONI UTILIZZO" per installare l\'app.', true);
+                closeSlotModal();
+                return;
+            }
+            
+            const datetime = document.getElementById('selectedDateTime').value;
+            const nome = document.getElementById('inputNome').value;
+            const cognome = document.getElementById('inputCognome').value;
+            const telefono = document.getElementById('inputTelefono').value; 
+            const problematica = document.getElementById('inputProblematica').value;
+
+            const [dateStr, timeStr] = datetime.split('T');
+
+            try {
+                await refreshGlobalAppointments();
+                
+                const slotOccupato = globalAppointmentsCache.some(appt => {
+                    if (!appt.start) return false;
+                    const apptDate = appt.start.substring(0, 10);
+                    const apptTime = appt.start.substring(11, 16);
+                    return apptDate === dateStr && apptTime === timeStr;
+                });
+                
+                if (slotOccupato) {
+                    showCustomAlert('Questo orario è stato appena prenotato. Scegli un altro orario.', true);
+                    document.getElementById('bookingForm').style.display = 'none';
+                    document.getElementById('availableSlotsList').style.display = 'block';
+                    document.getElementById('modalTitle').textContent = `Orari disponibili per il ${new Date(dateStr).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })}`;
+                    await loadSlots(dateStr, document.getElementById('availableSlotsList'));
+                    return;
+                }
+                
+                const appuntamentiDelGiorno = globalAppointmentsCache.filter(appt => {
+                    if (!appt.start) return false;
+                    return appt.start.startsWith(dateStr);
+                }).length;
+                
+                if (appuntamentiDelGiorno >= 15) {
+                    showCustomAlert('Giorno completo. Il ristorante da MIMMO ha già 15 appuntamenti. Scegli un altro giorno.', true);
+                    closeSlotModal();
+                    return;
+                }
+                
+                saveUserData(nome, cognome, telefono);
+
+                   const appointmentData = {
+                    customer_name: nome + ' ' + cognome,
+                    title: nome + ' ' + cognome,
+                    cliente: nome + ' ' + cognome,
+                    appointment_date: dateStr,
+                    appointment_time: timeStr,
+                    telefono: telefono,
+                    note: problematica,
+                    status: 'pending',
+                    source: 'website_booking',
+                    timestamp: new Date().toISOString()
+                };
+
+
+                    const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(appointmentData)
+                });
+
+                const result = await response.json();
+                
+                if (result.status === 'saved') {
+                    showCustomAlert('Appuntamento prenotato! Riceverai conferma da ristorante da MIMMO.', false);
+                    document.getElementById('inputProblematica').value = '';
+                    const myAppointments = JSON.parse(localStorage.getItem('myAppointmentIds') || '[]');
+                    myAppointments.push({
+                        id: parseInt(result.id),
+                        telefono: telefono,
+                        awaitingConfirmation: true,
+                        createdAt: new Date().toISOString()
+                    });
+                    localStorage.setItem('myAppointmentIds', JSON.stringify(myAppointments));
+                    const dataVisualizza = new Date(dateStr + 'T' + timeStr);
+                    const dataStr = dataVisualizza.getDate() + ' ' + dataVisualizza.toLocaleDateString('it-IT', { month: 'short' });
+                    document.getElementById('appointmentInfo').textContent = dataStr + ' ' + timeStr.substring(0, 5);
+                    document.getElementById('myAppointments').classList.add('visible');
+                    
+                    closeSlotModal();
+                    updateCalendar();
+                } else {
+                    showCustomAlert('Errore nel salvataggio. Riprova.', true);
+                }
+                
+            } catch (error) {
+                showCustomAlert('Errore di connessione. Riprova.', true);
+                console.error('Errore:', error);
+            }
+        }
+
+        function showCustomAlert(message, isError = false) {
+            const alertEl = document.getElementById('custom-alert');
+            document.getElementById('alert-message').textContent = message;
+            
+            if (isError) {
+                alertEl.classList.add('error');
+            } else {
+                alertEl.classList.remove('error');
+            }
+            
+            alertEl.classList.add('show');
+            
+            if (isError) {
+                setTimeout(() => {
+                    alertEl.classList.remove('show');
+                }, 5000);
+            }
+        }
+        
+        function closeAlert() {
+            const alertEl = document.getElementById('custom-alert');
+            alertEl.classList.remove('show');
+
+            if (typeof currentPopupId !== 'undefined' && currentPopupId !== null) {
+                const shownPopups = JSON.parse(localStorage.getItem('shownPopups') || '[]');
+                if (!shownPopups.includes(currentPopupId)) {
+                    shownPopups.push(currentPopupId);
+                    localStorage.setItem('shownPopups', JSON.stringify(shownPopups));
+                }
+            }
+            // prepara al prossimo popup
+            currentPopupId = null;
+            isShowingPopup = false;
+            setTimeout(showNextPopup, 150);
+        }
+
+        function getAvailableSlots(dateStr, occupiedSlots = []) {
+            const free = [];
+            const occupied = [];
+            
+            let start = parseTime(workingHours.start);
+            const end = parseTime(workingHours.end);
+
+            while (start < end) {
+                const slotTime = formatTime(start);
+                
+                if (occupiedSlots.includes(slotTime)) {
+                    occupied.push(slotTime);
+                } else {
+                    free.push(slotTime);
+                }
+
+                start += workingHours.interval;
+            }
+            
+            return { free, occupied };
+        }
+
+        function closeSlotModal(event) {
+            if (!event || event.target.id === 'slotModal' || event.target.id === 'closeButton') {
+                document.getElementById('slotModal').style.display = 'none';
+                document.querySelectorAll('.day-box').forEach(el => el.classList.remove('selected'));
+                
+                document.getElementById('availableSlotsList').style.display = 'block';
+                document.getElementById('bookingForm').style.display = 'none';
+                
+                isModalOpen = false;
+            }
+        }
+        
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            currentDate.setDate(1); 
+            updateCalendar();
+        }
+        
+        // =====================
+        // Modale Info/Install
+        // =====================
+        let deferredInstallPrompt = null;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isInStandaloneMode = window.navigator.standalone === true;
+        const VOICE_APK_URL = 'https://www.consulenticaniegatti.com/sveglia-vocale/app-debug.apk'; // Link APK agenda vocale
+        const APP_INSTALLED_KEY = 'appInstalled';
+        const ACTIVATION_OK_KEY = 'activationOk';
+        const FORCE_ENABLE = true; // isolamento: bypass attivazione/codice per test
+
+        // Rileva installazione PWA (anche se IS_STANDALONE non risponde correttamente)
+        const detectInstalled = window.matchMedia('(display-mode: standalone)').matches ||
+                                window.navigator.standalone === true ||
+                                document.referrer.includes('android-app://');
+        if (detectInstalled) {
+            try { localStorage.setItem(APP_INSTALLED_KEY, 'true'); } catch (_) {}
+            console.log('✅ App installata rilevata');
+        }
+
+        // Intercetta beforeinstallprompt (Android/Chrome)
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            updateInstallButtonState(); // Aggiorna stato pulsante quando disponibile
+        });
+
+        // Evento installazione PWA
+        window.addEventListener('appinstalled', () => {
+            try {
+                localStorage.setItem(APP_INSTALLED_KEY, 'true');
+            } catch (_) {}
+            updateInstallButtonState();
+        });
+
+        // Salva installedAt su iOS al primo avvio standalone
+        if (isIOS && isInStandaloneMode) {
+            try {
+                const installed = localStorage.getItem('installedAt');
+                if (!installed) {
+                    localStorage.setItem('installedAt', new Date().toISOString());
+                }
+                localStorage.setItem(APP_INSTALLED_KEY, 'true');
+            } catch (_) {}
+        }
+
+        function openInfoModal() {
+            try {
+                syncPrivacyCheckbox();
+                // Aggiorna etichetta bottone codice se già presente
+                const activationBtn = document.getElementById('activationBtn');
+                if (activationBtn) {
+                    const hasCode = !!(localStorage.getItem('activationCode'));
+                    activationBtn.textContent = hasCode ? 'Codice inserito' : 'Inserisci codice di attivazione';
+                }
+                updateInstallButtonState(); // Aggiorna anche quando si apre il modale
+                document.getElementById('infoModal').style.display = 'flex';
+            } catch (_) {
+                document.getElementById('infoModal').style.display = 'flex';
+            }
+        }
+
+        function closeInfoModal(event) {
+            if (!event || event.target.id === 'infoModal' || event.target.id === 'closeInfo') {
+                document.getElementById('infoModal').style.display = 'none';
+            }
+        }
+
+        function isAppEnabled() {
+            if (FORCE_ENABLE) return true;
+            const privacyAccepted = (localStorage.getItem('privacyAccepted') === 'true');
+            const appInstalled = localStorage.getItem(APP_INSTALLED_KEY) === 'true' || IS_STANDALONE;
+            const activationOk = localStorage.getItem(ACTIVATION_OK_KEY) === 'true' || !!localStorage.getItem('activationCode');
+            return privacyAccepted && appInstalled && activationOk;
+        }
+
+        function ensureEnabled() {
+            if (isAppEnabled()) return true;
+            if (typeof showCustomAlert === 'function') {
+                showCustomAlert('Completa: Privacy, installa l\'app e inserisci il codice di attivazione.', true);
+            } else {
+                alert('Completa: Privacy, installa l\'app e inserisci il codice di attivazione.');
+            }
+            openInfoModal();
+            return false;
+        }
+
+        // Blocca click su azioni principali se non abilitato
+        document.addEventListener('click', (e) => {
+            if (isAppEnabled()) return;
+            const t = e.target;
+            if (!t) return;
+            const actionable = t.closest('#calendar-container') ||
+                               t.closest('.day-box') ||
+                               t.closest('.appointment-nav') ||
+                               t.closest('#promo-btn') ||
+                               t.closest('#btnRegistrati') ||
+                               t.closest('#promoModal') ||
+                               t.closest('#cover-overlay');
+            const allowList = t.closest('#instructionsBtn') ||
+                              t.closest('#installBtn') ||
+                              t.closest('#installVoiceBtn') ||
+                              t.closest('#activationBtn') ||
+                              t.closest('.activation-code-button') ||
+                              t.closest('.help-instructions-button') ||
+                              t.closest('#closeInfo') ||
+                              t.closest('.help-button') ||
+                              t.closest('#instructionsBtn') ||
+                              t.closest('#closeWelcome');
+            if (allowList) return;
+            if (actionable) {
+                e.preventDefault();
+                e.stopPropagation();
+                ensureEnabled();
+            }
+        }, true);
+
+        function updateInstallButtonState() {
+            const btn = document.getElementById('installBtn');
+            const voiceBtn = document.getElementById('installVoiceBtn');
+            if (!btn) return;
+            const accepted = localStorage.getItem('privacyAccepted') === 'true';
+            const installedFlag = localStorage.getItem(APP_INSTALLED_KEY) === 'true';
+            
+            // Se già installata, disabilita pulsante
+            if (IS_STANDALONE) {
+                btn.disabled = true;
+                btn.textContent = '✅ App già installata';
+                if (voiceBtn) voiceBtn.disabled = !accepted;
+                try { localStorage.setItem(APP_INSTALLED_KEY, 'true'); } catch (_) {}
+                return;
+            }
+            
+            // Se iOS, mostra istruzioni invece di pulsante normale
+            if (isIOS && !isInStandaloneMode) {
+                btn.textContent = '📱 Mostra istruzioni iOS';
+            } else if (deferredInstallPrompt) {
+                btn.textContent = '📲 Installa applicazione';
+            } else {
+                btn.textContent = installedFlag ? '✅ App installata' : 'Installa applicazione';
+            }
+            
+            btn.disabled = !accepted;
+            if (voiceBtn) voiceBtn.disabled = !accepted;
+        }
+
+        function onPrivacyChange(e) {
+            const checked = !!(e && e.target && e.target.checked);
+            localStorage.setItem('privacyAccepted', checked ? 'true' : 'false');
+            updateInstallButtonState();
+            syncPrivacyCheckbox();
+        }
+
+        // Imposta lo stato del checkbox privacy in base allo storage ogni volta che serve
+        function syncPrivacyCheckbox() {
+            const cb = document.getElementById('privacyAccept');
+            const heading = document.querySelector('#infoModal h3');
+            if (!cb) return;
+            const accepted = localStorage.getItem('privacyAccepted') === 'true';
+            cb.checked = accepted;
+            if (accepted) {
+                cb.setAttribute('checked', 'checked');
+            } else {
+                cb.removeAttribute('checked');
+            }
+            cb.disabled = true;
+            if (accepted && heading) {
+                heading.textContent = 'Privacy accettata';
+            }
+        }
+
+        async function handleInstallClick() {
+            const accepted = (document.getElementById('privacyAccept')?.checked) || (localStorage.getItem('privacyAccepted') === 'true');
+            if (!accepted) return;
+            
+            // iOS: mostra istruzioni
+            if (isIOS && !isInStandaloneMode) {
+                showIOSInstallInstructions();
+                return;
+            }
+            
+            // Android/Chrome: usa deferredPrompt
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                try {
+                    const choiceResult = await deferredInstallPrompt.userChoice;
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('✅ Utente ha accettato l\'installazione');
+                        try { localStorage.setItem(APP_INSTALLED_KEY, 'true'); } catch (_) {}
+                    }
+                } finally {
+                    deferredInstallPrompt = null;
+                    updateInstallButtonState();
+                }
+            } else {
+                // Fallback: mostra istruzioni generiche
+                showCustomAlert('Installa l\'app dal menu del browser (tre puntini → Installa app)', false);
+            }
+        }
+
+        function handleInstallVoiceClick() {
+            const accepted = (document.getElementById('privacyAccept')?.checked) || (localStorage.getItem('privacyAccepted') === 'true');
+            if (!accepted) return;
+            if (!VOICE_APK_URL) {
+                showCustomAlert('Link APK agenda vocale non configurato.', true);
+                return;
+            }
+            try {
+                window.open(VOICE_APK_URL, '_blank');
+            } catch (e) {
+                showCustomAlert('Errore apertura download agenda vocale.', true);
+            }
+        }
+        
+        function showIOSInstallInstructions() {
+            const message = '📱 Per installare su iPhone/iPad:\n\n' +
+                '1. Tocca il pulsante Condividi (quadrato con freccia)\n' +
+                '2. Scorri e tocca "Aggiungi alla schermata Home"\n' +
+                '3. Tocca "Aggiungi" in alto a destra\n\n' +
+                'L\'app apparirà nella Home!';
+            showCustomAlert(message, false);
+        }
+
+        function openWelcomeFromInfo() {
+            if (typeof ActionDispatcher !== 'undefined' && ActionDispatcher && typeof ActionDispatcher.dispatch === 'function') {
+                ActionDispatcher.dispatch('openWelcomeModal');
+            }
+        }
+
+        function openPrivacy(event) {
+            if (event) event.preventDefault();
+            document.getElementById('privacyModal').style.display = 'flex';
+        }
+
+        function closePrivacyModal(event) {
+            if (!event || event.target.id === 'privacyModal' || event.target.closest('button')) {
+                document.getElementById('privacyModal').style.display = 'none';
+            }
+        }
+
+        function acceptPrivacy() {
+            // Attiva il checkbox privacy nel modale principale
+            const checkbox = document.getElementById('privacyAccept');
+            if (checkbox) {
+                checkbox.disabled = false;
+                checkbox.checked = true;
+                checkbox.setAttribute('checked', 'checked');
+                onPrivacyChange({ target: checkbox });
+                // Assicura la spunta visibile
+                syncPrivacyCheckbox();
+            }
+            // Chiudi modale privacy
+            document.getElementById('privacyModal').style.display = 'none';
+            // Mostra messaggio conferma
+            showCustomAlert('✅ Privacy accettata', false);
+        }
+        
+        function parseTime(timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        function formatTime(minutes) {
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+        
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Sincronizza subito la UI privacy con lo stato salvato
+            syncPrivacyCheckbox();
+            // Aggiorna etichetta bottone codice se già presente
+            const activationBtn = document.getElementById('activationBtn');
+            if (activationBtn) {
+                const hasCode = !!(localStorage.getItem('activationCode'));
+                activationBtn.textContent = hasCode ? 'Codice inserito' : 'Inserisci codice di attivazione';
+            }
+            // ========== RECUPERO CODICE ATTIVAZIONE ALL'AVVIO ==========
+            // PRIMA DI TUTTO: Recupera il codice salvato e imposta AGENDA_ID corretto
+            // Questo previene la perdita del codice quando l'app si riavvia
+            try {
+                const savedCode = localStorage.getItem('activationCode');
+                if (savedCode) {
+                    const prefisso = getPrefissoFromCodice(savedCode);
+                    if (prefisso) {
+                        AGENDA_ID = prefisso;
+                        console.log('✅ AGENDA_ID impostato all\'avvio:', AGENDA_ID);
+                        // Carica config toilettatore in background
+                        loadVetConfig(prefisso).then(config => {
+                            if (config) {
+                                VET_CONFIG = config;
+                                updateVetInfo();
+                            }
+                        }).catch(err => console.warn('Config non caricata:', err));
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ Errore recupero codice all\'avvio:', error);
+            }
+            // ========== FINE RECUPERO CODICE ==========
+            
+            // Registra tutte le azioni nel Dispatcher
+            if (typeof ActionDispatcher === 'undefined') {
+                window.ActionDispatcher = (function() {
+                    const actions = {};
+                    return {
+                        register: function(name, fn) {
+                            if (name && typeof fn === 'function') {
+                                actions[name] = fn;
+                            }
+                        },
+                        dispatch: function(name, payload) {
+                            const fn = actions[name];
+                            if (typeof fn === 'function') {
+                                return fn(payload);
+                            }
+                        }
+                    };
+                })();
+            }
+             ActionDispatcher.register('openWelcomeModal', openWelcomeModal);
+             ActionDispatcher.register('closeWelcomeModal', closeWelcomeModal);
+             ActionDispatcher.register('showSlotList', showSlotList);
+             ActionDispatcher.register('closeSlotModal', closeSlotModal);
+             ActionDispatcher.register('addAppointment', addAppointment);
+             ActionDispatcher.register('deleteCurrentAppointment', deleteCurrentAppointment);
+             ActionDispatcher.register('openDocumentsModal', openDocumentsModal);
+             ActionDispatcher.register('closeDocumentsModal', closeDocumentsModal);
+             ActionDispatcher.register('previousAppointment', previousAppointment);
+             ActionDispatcher.register('nextAppointment', nextAppointment);
+             ActionDispatcher.register('changeMonth', changeMonth);
+             ActionDispatcher.register('switchTab', switchTab);
+             ActionDispatcher.register('openCategory', openCategory);
+             ActionDispatcher.register('closeCategory', closeCategory);
+             ActionDispatcher.register('openUploadForm', openUploadForm);
+             ActionDispatcher.register('closeUploadForm', closeUploadForm);
+             ActionDispatcher.register('handleCategoryFileSelect', handleCategoryFileSelect);
+             ActionDispatcher.register('saveDocument', saveDocument);
+             ActionDispatcher.register('closeDocumentViewer', closeDocumentViewer);
+             ActionDispatcher.register('sendSingleDocument', sendSingleDocument);
+             ActionDispatcher.register('deleteSingleDocument', deleteSingleDocument);
+             ActionDispatcher.register('handleFileSelect', handleFileSelect);
+             ActionDispatcher.register('closeAlert', closeAlert);
+             ActionDispatcher.register('openActivationModalManual', openActivationModalManual);
+             ActionDispatcher.register('attivaApp', attivaApp);
+             ActionDispatcher.register('sendDocuments', sendDocuments);
+             ActionDispatcher.register('closePromoModal', closePromoModal);
+            // ========== CONTROLLO ATTIVAZIONE SOLO SE INSTALLATA (PWA) ==========
+            // Nel muletto (browser) NON bloccare, lascia funzionare come demo
+            // NOTA: Non bloccare inizializzazione, ma bloccare funzionalità nelle singole funzioni
+            if (IS_STANDALONE) {
+                try {
+                    await verificaAutorizzazione(); // Verifica ma non blocca inizializzazione
+                } catch (error) {
+                    console.error('Errore verifica autorizzazione:', error);
+                    // Continua comunque, non bloccare inizializzazione
+                }
+            }
+            
+            // Disabilita pulsanti se non installata (muletto)
+            if (IS_MULETTO) {
+                // Disabilita pulsante archivio/invio file
+                const sendDocsBtn = document.querySelector('.send-documents-button');
+                // Evita di toccare il bottone di registrazione OneSignal_DISABLED (usa la stessa classe per stile)
+                if (sendDocsBtn && sendDocsBtn.id !== 'btnRegistrati') {
+                    sendDocsBtn.style.opacity = '0.5';
+                    sendDocsBtn.style.cursor = 'not-allowed';
+                    sendDocsBtn.title = 'Installa l\'app per usare questa funzione';
+                }
+                // Nota: il pulsante prenotazione è nel calendario, verrà bloccato nella funzione addAppointment
+            }
+            // ========== FINE CONTROLLO ATTIVAZIONE ==========
+            
+            // Inizializza database (solo se autorizzato o muletto)
+            try {
+                await initDB();
+                console.log('✅ App pronta con database');
+                updateCategoryCounts();
+            } catch (error) {
+                console.error('❌ Errore init DB:', error);
+                showCustomAlert('⚠️ Attenzione: funzione archivio potrebbe non funzionare', true);
+            }
+            
+            updateCalendar();
+            loadMyAppointments();
+            refreshGlobalAppointments();
+
+            // Chiamata alla funzione per controllare i compleanni rimossa (funzione non definita)
+            
+            if (!localStorage.getItem('welcomeShown')) {
+                setTimeout(() => {
+                    openWelcomeModal();
+                }, 500);
+            }
+        });
+        
+        function openWelcomeModal() {
+            document.getElementById('welcome-modal').classList.add('show');
+        }
+        
+        function closeWelcomeModal() {
+            document.getElementById('welcome-modal').classList.remove('show');
+            localStorage.setItem('welcomeShown', 'true');
+        }
+
+        function closeWelcomeAndFocusInstall() {
+            closeWelcomeModal();
+            const infoModal = document.getElementById('infoModal');
+            if (infoModal) {
+                infoModal.style.display = 'flex';
+            }
+            const targetBtn = document.getElementById('installBtn') || document.getElementById('installVoiceBtn');
+            if (targetBtn && typeof targetBtn.scrollIntoView === 'function') {
+                targetBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetBtn.focus();
+            }
+        }
+        
+        async function loadMyAppointments() {
+            const userPhone = localStorage.getItem("userTelefono");
+            if (!userPhone) {
+                document.getElementById('myAppointments').classList.remove('visible');
+                return;
+            }
+            
+            try {
+                myAppointmentsList = globalAppointmentsCache.filter(appt => {
+                    return appt.extendedProps && appt.extendedProps.telefono === userPhone;
+                }).sort((a, b) => new Date(b.start) - new Date(a.start));
+                
+                if (myAppointmentsList.length > 0) {
+                    currentAppointmentIndex = 0;
+                    showCurrentAppointment();
+                    document.getElementById('myAppointments').classList.add('visible');
+                } else {
+                    document.getElementById('myAppointments').classList.remove('visible');
+                }
+                
+            } catch (error) {
+                console.error('Errore caricamento appuntamenti:', error);
+            }
+        }
+        
+        function showCurrentAppointment() {
+            if (myAppointmentsList.length === 0) return;
+            
+            const appt = myAppointmentsList[currentAppointmentIndex];
+            const date = new Date(appt.start);
+            const dateStr = date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+            const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+            
+            document.getElementById('appointmentInfo').textContent = `${dateStr} ${timeStr}`;
+        }
+        
+        function nextAppointment() {
+            if (myAppointmentsList.length === 0) return;
+            currentAppointmentIndex = (currentAppointmentIndex + 1) % myAppointmentsList.length;
+            showCurrentAppointment();
+        }
+        
+        function previousAppointment() {
+            if (myAppointmentsList.length === 0) return;
+            currentAppointmentIndex = (currentAppointmentIndex - 1 + myAppointmentsList.length) % myAppointmentsList.length;
+            showCurrentAppointment();
+        }
+        
+        async function deleteCurrentAppointment() {
+            if (myAppointmentsList.length === 0) return;
+            
+            const confirmed = await showConfirm('Vuoi eliminare questo appuntamento?', '🗑️', 'delete');
+            if (!confirmed) return;
+            
+            const appt = myAppointmentsList[currentAppointmentIndex];
+            
+            try {
+                    const response = await fetch('api.php', {
+
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: appt.id })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'deleted' || result.status === 'updated') {
+                    showCustomAlert('Appuntamento eliminato', false);
+                    await refreshGlobalAppointments();
+                    await loadMyAppointments();
+                } else {
+                    showCustomAlert('Errore nell\'eliminazione', true);
+                }
+                
+            } catch (error) {
+                console.error('Errore eliminazione:', error);
+                showCustomAlert('Errore di connessione', true);
+            }
+        }
+        
+        // Archivio documenti disattivato
+        let selectedFiles = [];
+        let currentCategory = null;
+        let selectedCategoryFile = null;
+        let db = null;
+        let dbReady = false;
+
+        // Stubs archivio documenti disattivato
+        async function initDB() { return; }
+        function openDocumentsModal() { return; }
+        function closeDocumentsModal() { return; }
+        function switchTab() { return; }
+        function openCategory() { return; }
+        function closeCategory() { return; }
+        function openUploadForm() { return; }
+        function closeUploadForm() { return; }
+        function handleFileSelect() { return; }
+        function handleCategoryFileSelect() { return; }
+        function updateCategoryCounts() { return; }
+        function loadDocumentsForCurrentCategory() { return; }
+        function displayDocuments() { return; }
+        function removeFile() { return; }
+        function saveDocument() { return; }
+        function closeDocumentViewer() { return; }
+        function sendSingleDocument() { return; }
+        function deleteSingleDocument() { return; }
+        function sendDocuments() { return; }
+
+        // ========== SISTEMA PROMOZIONI ==========
+        // Variabile globale per salvare la vistaKey della promozione corrente
+        let currentPromoVistaKey = null;
+        
+         function checkPromozioniToilettatura(){
+    console.log('🎁 Controllo promozioni...');
+     fetch('../promo_api-toilet-001.php')
+    .then(r=>{
+        console.log('📡 Risposta API promozioni ricevuta:', r.status);
+        return r.json();
+    })
+    .then(data=>{
+        console.log('🎉 Promozioni ricevute:', data);
+        const promozioni = data.promozioni || data;
+        if(Array.isArray(promozioni)&&promozioni.length>0){
+            console.log('✅ Trovate', promozioni.length, 'promozioni');
+            try {
+                setCoverOverlayFromPromo(promozioni[0]);
+            } catch (e) {
+                console.warn('Impostazione copertina da promo fallita:', e);
+            }
+            
+            promozioni.forEach(promo=>{
+                // Controlla se la promozione è valida in base alle date
+                const oggi = new Date();
+                oggi.setHours(0, 0, 0, 0);
+                
+                const dataInizio = new Date(promo.data_inizio);
+                dataInizio.setHours(0, 0, 0, 0);
+                
+                const dataFine = new Date(promo.data_fine);
+                dataFine.setHours(23, 59, 59, 999);
+                
+                // Verifica se la promozione è nel periodo valido
+                if (oggi < dataInizio) {
+                    console.log('⏳ Promo ID', promo.id, '- Non ancora iniziata (inizia:', promo.data_inizio + ')');
+                    return;
+                }
+                
+                if (oggi > dataFine) {
+                    console.log('❌ Promo ID', promo.id, '- Scaduta (finiva:', promo.data_fine + ')');
+                    return;
+                }
+                
+                // ========== PARAMETRI CONFIGURABILI ==========
+                // Usa valori dal JSON, oppure default se non specificati
+                const maxVisualizzazioni = promo.max_visualizzazioni || 3; // Default: 3 volte
+                
+                // Leggi gli orari configurati
+                let orariConfigurati = [];
+                if (promo.popup_orari) {
+                    try {
+                        orariConfigurati = typeof promo.popup_orari === 'string' ? 
+                            JSON.parse(promo.popup_orari) : 
+                            promo.popup_orari;
+                        if (!Array.isArray(orariConfigurati)) {
+                            orariConfigurati = [];
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Errore parsing orari:', e);
+                        orariConfigurati = [];
+                    }
+                }
+                
+                // Se ci sono orari configurati, controlla se è il momento di mostrarli
+                if (promo.popup_attivo == 1 && orariConfigurati.length > 0) {
+                    const oraAttuale = new Date();
+                    const oraAttualeNum = oraAttuale.getHours();
+                    const minutoAttualeNum = oraAttuale.getMinutes();
+                    const oraAttualeStr = String(oraAttualeNum).padStart(2, '0') + ':' + 
+                                         String(minutoAttualeNum).padStart(2, '0');
+                    
+                    const dataOggi = oggi.toISOString().split('T')[0];
+                    
+                    // Trova l'ULTIMO orario passato che non è stato ancora mostrato
+                    let ultimoOrarioDaMostrare = null;
+                    
+                    for (const orario of orariConfigurati) {
+                        const [ora, minuto] = orario.split(':');
+                        const oraTarget = parseInt(ora);
+                        const minutoTarget = parseInt(minuto);
+                        
+                        // Controlla se questo orario è già stato mostrato oggi
+                        const chiaveOrario = 'PROMO_' + promo.id + '_orario_' + orario + '_' + dataOggi;
+                        const giaMostrato = localStorage.getItem(chiaveOrario);
+                        
+                        if (giaMostrato) {
+                            continue; // Già mostrato, vai al prossimo
+                        }
+                        
+                        // Controlla se siamo oltre questo orario (l'orario è passato o è adesso)
+                        const oraPassed = (oraAttualeNum > oraTarget) || 
+                                         (oraAttualeNum === oraTarget && minutoAttualeNum >= minutoTarget);
+                        
+                        if (oraPassed) {
+                            // Questo orario è passato e non è stato ancora mostrato - ricordalo
+                            ultimoOrarioDaMostrare = orario;
+                            // Continua il loop per trovare l'ULTIMO orario passato
+                        }
+                    }
+                    
+                    // Se abbiamo trovato un orario passato da mostrare, mostra solo quello
+                    if (ultimoOrarioDaMostrare) {
+                        console.log('⏰ Promo ID', promo.id, '- Mostro ULTIMO orario passato:', ultimoOrarioDaMostrare);
+                        const chiaveOrario = 'PROMO_' + promo.id + '_orario_' + ultimoOrarioDaMostrare + '_' + dataOggi;
+                        localStorage.setItem(chiaveOrario, 'true');
+                        mostraPromozioneModal(promo, ultimoOrarioDaMostrare);
+                        return;
+                    }
+                    
+                    // Se arriviamo qui, tutti gli orari sono ancora nel futuro o già mostrati
+                    console.log('⏰ Promo ID', promo.id, '- Nessun orario da mostrare adesso. Prossimi orari:', orariConfigurati);
+                    return;
+                }
+                
+                console.log('📅 Promo ID', promo.id, '- Max visualizzazioni:', maxVisualizzazioni);
+                
+                // USA localStorage DIRETTO con prefisso PROMO_ (separato da AGENDA_ID)
+                const contatoreKey = 'PROMO_' + promo.id + '_contatore';
+                
+                // Leggi contatore
+                let contatore = parseInt(localStorage.getItem(contatoreKey) || '0');
+                
+                console.log('📊 Promo ID', promo.id, '- Contatore:', contatore + '/' + maxVisualizzazioni);
+                
+                // Se ha già raggiunto il massimo, salta
+                if (contatore >= maxVisualizzazioni) {
+                    console.log('🛑 Promo ID', promo.id, '- Già mostrata', maxVisualizzazioni, 'volte, STOP');
+                    return;
+                }
+                
+                // OK, mostra la promo!
+                console.log('🚀 Mostro promozione:', promo.titolo, '(visualizzazione', (contatore + 1), 'di', maxVisualizzazioni + ')');
+                
+                // Incrementa contatore SUBITO usando localStorage diretto
+                localStorage.setItem(contatoreKey, (contatore + 1).toString());
+                
+                console.log('💾 Salvato - Contatore:', (contatore + 1));
+                
+                mostraPromozioneModal(promo);
+            });
+        } else {
+            console.log('⚠️ Nessuna promozione disponibile o formato non valido');
+        }
+    })
+    .catch(err=>{
+        console.error('❌ ERRORE caricamento promozioni:', err);
+    });
+}
+        
+        function mostraPromozioneModal(promo, orario = null){
+            try {
+                console.log('🎨 Creo modal per promozione:', promo, 'Orario:', orario);
+                let pm=document.getElementById('promo-modal');
+                if(!pm){
+                    console.log('📦 Creo nuovo elemento modal');
+                    pm=document.createElement('div');
+                    pm.id='promo-modal';
+                    pm.style.cssText='display:flex;position:fixed;z-index:10000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);justify-content:center;align-items:center';
+                    document.body.appendChild(pm);
+                } else {
+                    console.log('♻️ Riuso modal esistente');
+                }
+                const di=new Date(promo.data_inizio).toLocaleDateString('it-IT');
+                const df=new Date(promo.data_fine).toLocaleDateString('it-IT');
+                console.log('📅 Date formattate - Inizio:', di, 'Fine:', df);
+                
+                const orarioHtml = orario ? `<div style="background:#FFF3E0;padding:8px;border-radius:5px;margin-top:10px;font-weight:bold;color:#E65100">⏰ Orario: ${orario}</div>` : '';
+                const orarioPushHtml = promo.push_attivo == 1 && !orario ? `<div style="background:#E3F2FD;padding:10px;border-radius:5px;margin-top:10px;font-weight:bold;color:#1976D2;text-align:center">💬 Pop-up mostrato alle ore: ${new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'})}</div>` : '';
+                pm.innerHTML = `
+                    <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:15px;width:90%;max-width:500px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.3)">
+                        <div style="background:rgba(255,255,255,0.15);padding:25px;text-align:center;color:white;border-bottom:2px solid rgba(255,255,255,0.2)">
+                         <h2 style="margin:0;font-size:28px">💬🐩 ${promo.push_attivo == 1 ? promo.titolo : 'POP-UP: ' + promo.titolo}</h2>  
+                        </div>
+                        <div style="padding:30px;background:white;color:#333">
+                            <p style="font-size:18px;line-height:1.6;margin-bottom:20px">${promo.messaggio}</p>
+                           ${orarioHtml}${orarioPushHtml}
+                            <div style="display:flex;justify-content:space-around;padding:15px;background:#f8f9fa;border-radius:8px;margin-bottom:20px">
+                                <div style="text-align:center">
+                                    <div style="font-size:12px;color:#777;text-transform:uppercase">Valida dal</div>
+                                    <div style="font-size:16px;font-weight:bold;color:#667eea;margin-top:5px">${di}</div>
+                                </div>
+                                <div style="text-align:center">
+                                    <div style="font-size:12px;color:#777;text-transform:uppercase">Fino al</div>
+                                    <div style="font-size:16px;font-weight:bold;color:#667eea;margin-top:5px">${df}</div>
+                                </div>
+                            </div>
+                            <button onclick="ActionDispatcher.dispatch('closePromoModal')" 
+                                    style="background:#667eea;color:white;padding:15px 40px;border:none;border-radius:8px;font-size:18px;font-weight:bold;cursor:pointer;width:100%;transition:all 0.3s">
+                                Ho capito!
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Salva l'orario DOPO aver impostato innerHTML (per evitare che venga perso)
+                if(orario) {
+                    pm.setAttribute('data-orario', orario);
+                    console.log('💾 Orario salvato sul modal:', orario);
+                }
+                
+                pm.style.display = 'flex';
+                
+                // Suono notifica POTENTE 🔊 (TEMPORANEAMENTE DISATTIVATO)
+                /* try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    // Primo beep ALTO
+                    const osc1 = audioContext.createOscillator();
+                    const gain1 = audioContext.createGain();
+                    osc1.connect(gain1);
+                    gain1.connect(audioContext.destination);
+                    osc1.frequency.value = 1200; // Frequenza alta
+                    gain1.gain.value = 0.4; // Volume alto
+                    osc1.start(audioContext.currentTime);
+                    osc1.stop(audioContext.currentTime + 0.15);
+                    
+                    // Secondo beep BASSO (dopo pausa)
+                    const osc2 = audioContext.createOscillator();
+                    const gain2 = audioContext.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(audioContext.destination);
+                    osc2.frequency.value = 900; // Frequenza media
+                    gain2.gain.value = 0.4; // Volume alto
+                    osc2.start(audioContext.currentTime + 0.2);
+                    osc2.stop(audioContext.currentTime + 0.4);
+                    
+                    console.log('🔊 Suono POTENTE riprodotto!');
+                } catch (e) {
+                    console.log('⚠️ Suono non riproducibile:', e);
+                } */
+                
+                console.log('✅ Modal mostrato!');
+            } catch (error) {
+                console.error('❌ ERRORE mostraPromozioneModal:', error);
+            }
+        }
+        
+        function closePromoModal(){
+            const pm=document.getElementById('promo-modal');
+            if(pm){
+                // Recupera la vistaKey dall'attributo data O dalla variabile globale
+                let vistaKey = pm.getAttribute('data-vista-key') || currentPromoVistaKey;
+                console.log('🔍 closePromoModal - VistaKey recuperata:', vistaKey, '(da attributo:', pm.getAttribute('data-vista-key'), ', da globale:', currentPromoVistaKey + ')');
+                
+                if(vistaKey){
+                    // Usa localStorage direttamente (senza prefisso AGENDA_ID) per evitare problemi se AGENDA_ID cambia
+                    localStorage.setItem(vistaKey, 'true');
+                    console.log('✅ Promozione marcata come vista e salvata:', vistaKey);
+                    // Verifica che sia stata salvata
+                    const verificato = localStorage.getItem(vistaKey);
+                    console.log('🔍 Verifica salvataggio - Leggendo:', verificato, '(Chiave completa:', vistaKey + ')');
+                    // Resetta la variabile globale
+                    currentPromoVistaKey = null;
+                } else {
+                    console.warn('⚠️ VistaKey non trovata né sul modal né in variabile globale!');
+                }
+                pm.style.display='none';
+            } else {
+                console.warn('⚠️ Modal promozione non trovato!');
+            }
+        }
+        
+        // RESET COMPLETO APP (per test e debug)
+        function resetCompleteApp() {
+            if (confirm('⚠️ ATTENZIONE!\n\nQuesto cancellerà:\n- Codice attivazione\n- Tutti gli appuntamenti\n- Tutti i documenti\n- Tutte le promozioni viste\n\nSei sicuro?')) {
+                console.log('🔄 Reset completo in corso...');
+                storage.clear();
+                if (db) {
+                    indexedDB.deleteDatabase('VetDocumentsDB');
+                }
+                alert('✅ Reset completato!\n\nLa pagina verrà ricaricata.');
+                location.reload();
+            }
+        }
+
+    </script>
+    <!-- <script src="../promotions-toilet-001.js"></script> --> <!-- TEMPORANEAMENTE DISATTIVATO PER DEBUG -->
+    <script>
+        console.log('🚀 SISTEMA PROMOZIONI AVVIATO - Primo controllo tra 1 secondo...');
+        setTimeout(()=>checkPromozioniToilettatura(),1000);
+        setInterval(checkPromozioniToilettatura, 10000); // Controlla ogni 10 secondi
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) checkPromozioniToilettatura(); });
+        // ========== FINE PROMOZIONI ==========
+
+    </script>
+    
+    <script>
+      // === Branding dinamico da config/branding.json ===
+      (function loadBranding() {
+        fetch('./config/branding.json')
+          .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(cfg => {
+            const headerCfg = cfg.header || cfg;
+            const welcomeCfg = cfg.welcome || {};
+            const instructionsCfg = cfg.instructions || {};
+
+            if (headerCfg.brandTitle) {
+              const el = document.getElementById('branding-title');
+              if (el) el.textContent = headerCfg.brandTitle;
+            }
+            if (headerCfg.bookingSubtitle) {
+              const el = document.getElementById('branding-subtitle');
+              if (el) el.textContent = headerCfg.bookingSubtitle;
+            }
+            const setText = (key, selector) => {
+              const val = welcomeCfg && welcomeCfg[key];
+              if (val) {
+                const el = document.querySelector(selector);
+                if (el) el.textContent = val;
+              }
+            };
+            setText('title', '[data-branding=\"welcome_title\"]');
+            setText('intro', '[data-branding=\"welcome_intro\"]');
+            setText('bullet1', '[data-branding=\"welcome_bullet_1\"]');
+            setText('bullet2', '[data-branding=\"welcome_bullet_2\"]');
+            setText('bullet3', '[data-branding=\"welcome_bullet_3\"]');
+            setText('bullet4', '[data-branding=\"welcome_bullet_4\"]');
+            setText('closing', '[data-branding=\"welcome_closing\"]');
+
+            if (instructionsCfg.buttonLabel) {
+              const btn = document.getElementById('instructionsBtn');
+              if (btn) btn.textContent = instructionsCfg.buttonLabel;
+            }
+          })
+          .catch(err => console.warn('Branding config non caricata, uso default:', err));
+      })();
+
+      // Identifica che la versione remota è attiva (impedisce doppio avvio del codice locale)
+      window.__REMOTE_APP__ = true;
+
+      // Messaggio di test per capire che il file remoto si carica
+      console.log('Remote app loaded: 2025.11.06-FIX');
+
+      // Qui in futuro metteremo tutta la logica "master" centralizzata.
+      // Per ora lasciamo solo il log, così verifichiamo che tutto funziona.
+
+      // Registrazione Service Worker (PWA - installabile)
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('sw-toilet-001.js', { scope: './', updateViaCache: 'none' }).then(function(reg) {
+            reg.update().catch(function(){});
+            console.log('SW registrato:', reg.scope);
+          }).catch(function(err) {
+            console.warn('SW non registrato:', err);
+          });
+        });
+      }
+      
+      // ========== RICHIESTA PERMESSO NOTIFICHE ========== - DISABILITATA (OneSignal_DISABLED gestisce tutto)
+      /*
+      function richiediPermessoNotifiche() {
+        // Controlla se già richiesto
+        if (localStorage.getItem('notificationPermissionAsked') === 'true') {
+          console.log('✅ Permesso notifiche già richiesto');
+          return;
+        }
+        
+        // Controlla se il browser supporta le notifiche
+        if (!('Notification' in window)) {
+          console.warn('❌ Browser non supporta notifiche');
+          return;
+        }
+        
+        // Se già concesso, non chiedere di nuovo
+        if (Notification.permission === 'granted') {
+          console.log('✅ Notifiche già abilitate');
+          return;
+        }
+        
+        // Mostra popup personalizzato
+        if (confirm('🔔 Abilita notifiche informative utili per te\n\nRiceverai promemoria per i tuoi appuntamenti e informazioni importanti da DOG STYLE!')) {
+          Notification.requestPermission().then(function(permission) {
+            localStorage.setItem('notificationPermissionAsked', 'true');
+            
+            if (permission === 'granted') {
+              console.log('✅ Permesso notifiche concesso!');
+              
+              // Invia notifica di test
+              if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(function(registration) {
+                  registration.showNotification('🐕 DOG STYLE', {
+                    body: 'Notifiche attivate! Ti avviseremo prima degli appuntamenti.',
+                    icon: './icon-192.png',
+                    badge: './icon-192.png',
+                    vibrate: [200, 100, 200]
+                  });
+                });
+              }
+            } else {
+              console.log('❌ Permesso notifiche negato');
+            }
+          });
+        } else {
+          localStorage.setItem('notificationPermissionAsked', 'true');
+          console.log('❌ Utente ha rifiutato le notifiche');
+        }
+      }
+      // Timestamp installazione (Chrome/Android) - DISABILITATO (PWA non attiva)
+      window.addEventListener('appinstalled', function() {
+        try { 
+          localStorage.setItem('installedAt', new Date().toISOString());
+         console.log('✅ App installata, timestamp salvato');
+        } catch(e) {
+          console.error('Errore salvataggio timestamp:', e);
+        }
+      });
+      */
+    </script>
+
+<script>
+// Blocca solo iOS aperto in browser in-app (WhatsApp/Instagram/Facebook/Telegram) dopo che la logica OneSignal_DISABLED è eseguita
+(function () {
+    const ua = navigator.userAgent.toLowerCase();
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+    const isInApp = ua.includes('whatsapp') || ua.includes('instagram') || ua.includes('fb') || ua.includes('telegram');
+
+    if (isIOS && isInApp) {
+    document.body.innerHTML = `
+      <div style="padding:20px;text-align:center;font-family:sans-serif">
+        <h2>Apri in Safari</h2>
+        <p>Per installare l'app e ricevere notifiche,<br>apri questo link in <b>Safari</b>.</p>
+        <p>Tocca <b>⋯</b> → <b>Apri nel browser</b></p>
+      </div>
+    `;
+  }
+})();
+</script>
+
+<script>
+  (function() {
+    const btn = document.getElementById('btnRegistrati');
+    if (btn) {
+      btn.disabled = false;
+      btn.removeAttribute('disabled');
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    }
+  })();
+</script>
+</body>
+</html>
+
+
+
+
+
+
